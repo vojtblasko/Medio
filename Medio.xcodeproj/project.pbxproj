@@ -1,0 +1,654 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		100000000000000000000007 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000017 /* Assets.xcassets */; };
+		1000000000000000000000E1 /* MedioTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000E0 /* MedioTests.swift */; };
+		1000000000000000000000F1 /* MedioUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000F0 /* MedioUITests.swift */; };
+		FC5A10012FD7000000000001 /* SQLiteListeningHistoryRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC5A10002FD7000000000000 /* SQLiteListeningHistoryRepository.swift */; };
+		FC5A10032FD7000000000003 /* AppInfrastructure.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC5A10022FD7000000000002 /* AppInfrastructure.swift */; };
+		FC5A11012FD7000000000011 /* ListeningHistory.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC5A11002FD7000000000010 /* ListeningHistory.swift */; };
+		FC5A11032FD7000000000013 /* FileMoveService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC5A11022FD7000000000012 /* FileMoveService.swift */; };
+		FC5A11052FD7000000000015 /* DesktopPositionStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC5A11042FD7000000000014 /* DesktopPositionStore.swift */; };
+		FC5A11072FD7000000000017 /* RootPageChrome.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC5A11062FD7000000000016 /* RootPageChrome.swift */; };
+		FC68182C2FA26813004A829E /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = FC68182B2FA26813004A829E /* AppIcon.icon */; };
+		FC6F0BCF2FCC59A900F80BD6 /* EditMetadataView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC6F0BCE2FCC59A900F80BD6 /* EditMetadataView.swift */; };
+		FC6F0BD22FCC59B700F80BD6 /* ArtistProfileRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC6F0BD02FCC59B700F80BD6 /* ArtistProfileRepository.swift */; };
+		FC6F0BD32FCC59B700F80BD6 /* BatterySaverService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC6F0BD12FCC59B700F80BD6 /* BatterySaverService.swift */; };
+		FCB100022FB7000000000002 /* AppScreens.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCB100012FB7000000000001 /* AppScreens.swift */; };
+		FCB100042FB7000000000004 /* AppPanels.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCB100032FB7000000000003 /* AppPanels.swift */; };
+		FCB100062FB7000000000006 /* NowPlayingPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCB100052FB7000000000005 /* NowPlayingPanel.swift */; };
+		FCB100082FB7000000000008 /* SettingsPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCB100072FB7000000000007 /* SettingsPanel.swift */; };
+		FCB1000A2FB700000000000A /* LyricsOrganizationService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCB100092FB7000000000009 /* LyricsOrganizationService.swift */; };
+		FCB1000C2FB700000000000C /* AuxiliaryViews.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCB1000B2FB700000000000B /* AuxiliaryViews.swift */; };
+		FCB1000E2FE000000000000E /* NavigationCompatibility.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCB1000D2FE000000000000D /* NavigationCompatibility.swift */; };
+		FCB100102FE0000000000010 /* MissingLyricsService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCB1000F2FE000000000000F /* MissingLyricsService.swift */; };
+		FCD3254C2FB69BEF00E9D0A8 /* LyricsFileAssociationRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCD3254B2FB69BEF00E9D0A8 /* LyricsFileAssociationRepository.swift */; };
+		FCF0CE5A2FB62B3500CBD573 /* Notifications.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCF0CE4D2FB62B3500CBD573 /* Notifications.swift */; };
+		FCF0CE5B2FB62B3500CBD573 /* QueueUseCases.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCF0CE522FB62B3500CBD573 /* QueueUseCases.swift */; };
+		FCF0CE5C2FB62B3500CBD573 /* ViewModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCF0CE592FB62B3500CBD573 /* ViewModels.swift */; };
+		FCF0CE5D2FB62B3500CBD573 /* SystemUI.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCF0CE562FB62B3500CBD573 /* SystemUI.swift */; };
+		FCF0CE5E2FB62B3500CBD573 /* AppContainer.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCF0CE3F2FB62B3500CBD573 /* AppContainer.swift */; };
+		FCF0CE5F2FB62B3500CBD573 /* PathDisplay.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCF0CE4F2FB62B3500CBD573 /* PathDisplay.swift */; };
+		FCF0CE602FB62B3500CBD573 /* FileLyricsRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCF0CE472FB62B3500CBD573 /* FileLyricsRepository.swift */; };
+		FCF0CE612FB62B3500CBD573 /* FileMetadataReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCF0CE482FB62B3500CBD573 /* FileMetadataReader.swift */; };
+		FCF0CE622FB62B3500CBD573 /* LyricsRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCF0CE4A2FB62B3500CBD573 /* LyricsRepository.swift */; };
+		FCF0CE632FB62B3500CBD573 /* Stores.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCF0CE552FB62B3500CBD573 /* Stores.swift */; };
+		FCF0CE642FB62B3500CBD573 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCF0CE532FB62B3500CBD573 /* RootView.swift */; };
+		FCF0CE652FB62B3500CBD573 /* AppRouter.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCF0CE402FB62B3500CBD573 /* AppRouter.swift */; };
+		FCF0CE662FB62B3500CBD573 /* DesignSystem.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCF0CE452FB62B3500CBD573 /* DesignSystem.swift */; };
+		FCF0CE672FB62B3500CBD573 /* BuildLibraryIndexUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCF0CE442FB62B3500CBD573 /* BuildLibraryIndexUseCase.swift */; };
+		FCF0CE682FB62B3500CBD573 /* PreferencesRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCF0CE512FB62B3500CBD573 /* PreferencesRepository.swift */; };
+		FCF0CE692FB62B3500CBD573 /* UserDefaultsPreferencesRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCF0CE582FB62B3500CBD573 /* UserDefaultsPreferencesRepository.swift */; };
+		FCF0CE6A2FB62B3500CBD573 /* ImportDocumentsUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCF0CE492FB62B3500CBD573 /* ImportDocumentsUseCase.swift */; };
+		FCF0CE6C2FB62B3500CBD573 /* MediaLibraryRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCF0CE4B2FB62B3500CBD573 /* MediaLibraryRepository.swift */; };
+		FCF0CE6D2FB62B3500CBD573 /* NowPlaying.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCF0CE4E2FB62B3500CBD573 /* NowPlaying.swift */; };
+		FCF0CE6E2FB62B3500CBD573 /* ScanLibraryUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCF0CE542FB62B3500CBD573 /* ScanLibraryUseCase.swift */; };
+		FCF0CE6F2FB62B3500CBD573 /* AppRoutes.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCF0CE412FB62B3500CBD573 /* AppRoutes.swift */; };
+		FCF0CE702FB62B3500CBD573 /* MedioApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCF0CE4C2FB62B3500CBD573 /* MedioApp.swift */; };
+		FCF0CE712FB62B3500CBD573 /* PlayMediaUseCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCF0CE502FB62B3500CBD573 /* PlayMediaUseCase.swift */; };
+		FCF0CE732FB62B3500CBD573 /* AudioPlaybackService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCF0CE432FB62B3500CBD573 /* AudioPlaybackService.swift */; };
+		FCF0CE742FB62B3500CBD573 /* UserDefaultsFavoritesRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCF0CE572FB62B3500CBD573 /* UserDefaultsFavoritesRepository.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		1000000000000000000000D0 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 100000000000000000000200 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 100000000000000000000100;
+			remoteInfo = Medio;
+		};
+		1000000000000000000000D1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 100000000000000000000200 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 100000000000000000000100;
+			remoteInfo = Medio;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		100000000000000000000010 /* Medio.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Medio.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		100000000000000000000016 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		100000000000000000000017 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		1000000000000000000000C0 /* MedioTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MedioTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		1000000000000000000000C1 /* MedioUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MedioUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		1000000000000000000000E0 /* MedioTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MedioTests.swift; sourceTree = "<group>"; };
+		1000000000000000000000F0 /* MedioUITests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MedioUITests.swift; sourceTree = "<group>"; };
+		FC5A10002FD7000000000000 /* SQLiteListeningHistoryRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SQLiteListeningHistoryRepository.swift; sourceTree = "<group>"; };
+		FC5A10022FD7000000000002 /* AppInfrastructure.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppInfrastructure.swift; sourceTree = "<group>"; };
+		FC5A11002FD7000000000010 /* ListeningHistory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ListeningHistory.swift; sourceTree = "<group>"; };
+		FC5A11022FD7000000000012 /* FileMoveService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileMoveService.swift; sourceTree = "<group>"; };
+		FC5A11042FD7000000000014 /* DesktopPositionStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesktopPositionStore.swift; sourceTree = "<group>"; };
+		FC5A11062FD7000000000016 /* RootPageChrome.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootPageChrome.swift; sourceTree = "<group>"; };
+		FC68182B2FA26813004A829E /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = folder.iconcomposer.icon; path = AppIcon.icon; sourceTree = "<group>"; };
+		FC6F0BCE2FCC59A900F80BD6 /* EditMetadataView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditMetadataView.swift; sourceTree = "<group>"; };
+		FC6F0BD02FCC59B700F80BD6 /* ArtistProfileRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtistProfileRepository.swift; sourceTree = "<group>"; };
+		FC6F0BD12FCC59B700F80BD6 /* BatterySaverService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatterySaverService.swift; sourceTree = "<group>"; };
+		FCB100012FB7000000000001 /* AppScreens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppScreens.swift; sourceTree = "<group>"; };
+		FCB100032FB7000000000003 /* AppPanels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPanels.swift; sourceTree = "<group>"; };
+		FCB100052FB7000000000005 /* NowPlayingPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NowPlayingPanel.swift; sourceTree = "<group>"; };
+		FCB100072FB7000000000007 /* SettingsPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsPanel.swift; sourceTree = "<group>"; };
+		FCB100092FB7000000000009 /* LyricsOrganizationService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LyricsOrganizationService.swift; sourceTree = "<group>"; };
+		FCB1000B2FB700000000000B /* AuxiliaryViews.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AuxiliaryViews.swift; sourceTree = "<group>"; };
+		FCB1000D2FE000000000000D /* NavigationCompatibility.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NavigationCompatibility.swift; sourceTree = "<group>"; };
+		FCB1000F2FE000000000000F /* MissingLyricsService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MissingLyricsService.swift; sourceTree = "<group>"; };
+		FCD3254B2FB69BEF00E9D0A8 /* LyricsFileAssociationRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LyricsFileAssociationRepository.swift; sourceTree = "<group>"; };
+		FCF0CE3F2FB62B3500CBD573 /* AppContainer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppContainer.swift; sourceTree = "<group>"; };
+		FCF0CE402FB62B3500CBD573 /* AppRouter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRouter.swift; sourceTree = "<group>"; };
+		FCF0CE412FB62B3500CBD573 /* AppRoutes.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppRoutes.swift; sourceTree = "<group>"; };
+		FCF0CE432FB62B3500CBD573 /* AudioPlaybackService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AudioPlaybackService.swift; sourceTree = "<group>"; };
+		FCF0CE442FB62B3500CBD573 /* BuildLibraryIndexUseCase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BuildLibraryIndexUseCase.swift; sourceTree = "<group>"; };
+		FCF0CE452FB62B3500CBD573 /* DesignSystem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DesignSystem.swift; sourceTree = "<group>"; };
+		FCF0CE472FB62B3500CBD573 /* FileLyricsRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileLyricsRepository.swift; sourceTree = "<group>"; };
+		FCF0CE482FB62B3500CBD573 /* FileMetadataReader.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileMetadataReader.swift; sourceTree = "<group>"; };
+		FCF0CE492FB62B3500CBD573 /* ImportDocumentsUseCase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ImportDocumentsUseCase.swift; sourceTree = "<group>"; };
+		FCF0CE4A2FB62B3500CBD573 /* LyricsRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LyricsRepository.swift; sourceTree = "<group>"; };
+		FCF0CE4B2FB62B3500CBD573 /* MediaLibraryRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MediaLibraryRepository.swift; sourceTree = "<group>"; };
+		FCF0CE4C2FB62B3500CBD573 /* MedioApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MedioApp.swift; sourceTree = "<group>"; };
+		FCF0CE4D2FB62B3500CBD573 /* Notifications.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Notifications.swift; sourceTree = "<group>"; };
+		FCF0CE4E2FB62B3500CBD573 /* NowPlaying.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NowPlaying.swift; sourceTree = "<group>"; };
+		FCF0CE4F2FB62B3500CBD573 /* PathDisplay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PathDisplay.swift; sourceTree = "<group>"; };
+		FCF0CE502FB62B3500CBD573 /* PlayMediaUseCase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlayMediaUseCase.swift; sourceTree = "<group>"; };
+		FCF0CE512FB62B3500CBD573 /* PreferencesRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreferencesRepository.swift; sourceTree = "<group>"; };
+		FCF0CE522FB62B3500CBD573 /* QueueUseCases.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = QueueUseCases.swift; sourceTree = "<group>"; };
+		FCF0CE532FB62B3500CBD573 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		FCF0CE542FB62B3500CBD573 /* ScanLibraryUseCase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanLibraryUseCase.swift; sourceTree = "<group>"; };
+		FCF0CE552FB62B3500CBD573 /* Stores.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Stores.swift; sourceTree = "<group>"; };
+		FCF0CE562FB62B3500CBD573 /* SystemUI.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SystemUI.swift; sourceTree = "<group>"; };
+		FCF0CE572FB62B3500CBD573 /* UserDefaultsFavoritesRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserDefaultsFavoritesRepository.swift; sourceTree = "<group>"; };
+		FCF0CE582FB62B3500CBD573 /* UserDefaultsPreferencesRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UserDefaultsPreferencesRepository.swift; sourceTree = "<group>"; };
+		FCF0CE592FB62B3500CBD573 /* ViewModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewModels.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		100000000000000000000101 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		100000000000000000000301 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		100000000000000000000401 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		100000000000000000000020 = {
+			isa = PBXGroup;
+			children = (
+				100000000000000000000021 /* Sources */,
+				100000000000000000000022 /* Resources */,
+				100000000000000000000060 /* Tests */,
+				100000000000000000000030 /* Products */,
+			);
+			sourceTree = SOURCE_ROOT;
+		};
+		100000000000000000000021 /* Sources */ = {
+			isa = PBXGroup;
+			children = (
+				FC5A10022FD7000000000002 /* AppInfrastructure.swift */,
+				FC5A11042FD7000000000014 /* DesktopPositionStore.swift */,
+				FC5A11022FD7000000000012 /* FileMoveService.swift */,
+				FC5A11002FD7000000000010 /* ListeningHistory.swift */,
+				FC5A11062FD7000000000016 /* RootPageChrome.swift */,
+				FCF0CE3F2FB62B3500CBD573 /* AppContainer.swift */,
+				FCB100012FB7000000000001 /* AppScreens.swift */,
+				FCB100032FB7000000000003 /* AppPanels.swift */,
+				FCF0CE402FB62B3500CBD573 /* AppRouter.swift */,
+				FCF0CE412FB62B3500CBD573 /* AppRoutes.swift */,
+				FCF0CE432FB62B3500CBD573 /* AudioPlaybackService.swift */,
+				FCB1000B2FB700000000000B /* AuxiliaryViews.swift */,
+				FCF0CE442FB62B3500CBD573 /* BuildLibraryIndexUseCase.swift */,
+				FCF0CE452FB62B3500CBD573 /* DesignSystem.swift */,
+				FCF0CE472FB62B3500CBD573 /* FileLyricsRepository.swift */,
+				FCF0CE482FB62B3500CBD573 /* FileMetadataReader.swift */,
+				FCF0CE492FB62B3500CBD573 /* ImportDocumentsUseCase.swift */,
+				FCF0CE4A2FB62B3500CBD573 /* LyricsRepository.swift */,
+				FCB100092FB7000000000009 /* LyricsOrganizationService.swift */,
+				FCF0CE4B2FB62B3500CBD573 /* MediaLibraryRepository.swift */,
+				FCF0CE4C2FB62B3500CBD573 /* MedioApp.swift */,
+				FCB1000D2FE000000000000D /* NavigationCompatibility.swift */,
+				FCB1000F2FE000000000000F /* MissingLyricsService.swift */,
+				FCF0CE4D2FB62B3500CBD573 /* Notifications.swift */,
+				FCB100052FB7000000000005 /* NowPlayingPanel.swift */,
+				FCF0CE4E2FB62B3500CBD573 /* NowPlaying.swift */,
+				FCF0CE4F2FB62B3500CBD573 /* PathDisplay.swift */,
+				FCF0CE502FB62B3500CBD573 /* PlayMediaUseCase.swift */,
+				FCF0CE512FB62B3500CBD573 /* PreferencesRepository.swift */,
+				FC6F0BCE2FCC59A900F80BD6 /* EditMetadataView.swift */,
+				FCF0CE522FB62B3500CBD573 /* QueueUseCases.swift */,
+				FCD3254B2FB69BEF00E9D0A8 /* LyricsFileAssociationRepository.swift */,
+				FCF0CE532FB62B3500CBD573 /* RootView.swift */,
+				FC6F0BD02FCC59B700F80BD6 /* ArtistProfileRepository.swift */,
+				FC6F0BD12FCC59B700F80BD6 /* BatterySaverService.swift */,
+				FC5A10002FD7000000000000 /* SQLiteListeningHistoryRepository.swift */,
+				FCF0CE542FB62B3500CBD573 /* ScanLibraryUseCase.swift */,
+				FCB100072FB7000000000007 /* SettingsPanel.swift */,
+				FCF0CE552FB62B3500CBD573 /* Stores.swift */,
+				FCF0CE562FB62B3500CBD573 /* SystemUI.swift */,
+				FCF0CE572FB62B3500CBD573 /* UserDefaultsFavoritesRepository.swift */,
+				FCF0CE582FB62B3500CBD573 /* UserDefaultsPreferencesRepository.swift */,
+				FCF0CE592FB62B3500CBD573 /* ViewModels.swift */,
+			);
+			path = Sources;
+			sourceTree = SOURCE_ROOT;
+		};
+		100000000000000000000022 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				100000000000000000000016 /* Info.plist */,
+				100000000000000000000017 /* Assets.xcassets */,
+				FC68182B2FA26813004A829E /* AppIcon.icon */,
+			);
+			path = Resources;
+			sourceTree = SOURCE_ROOT;
+		};
+		100000000000000000000030 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				100000000000000000000010 /* Medio.app */,
+				1000000000000000000000C0 /* MedioTests.xctest */,
+				1000000000000000000000C1 /* MedioUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		100000000000000000000060 /* Tests */ = {
+			isa = PBXGroup;
+			children = (
+				100000000000000000000061 /* MedioTests */,
+				100000000000000000000062 /* MedioUITests */,
+			);
+			path = Tests;
+			sourceTree = SOURCE_ROOT;
+		};
+		100000000000000000000061 /* MedioTests */ = {
+			isa = PBXGroup;
+			children = (
+				1000000000000000000000E0 /* MedioTests.swift */,
+			);
+			path = MedioTests;
+			sourceTree = "<group>";
+		};
+		100000000000000000000062 /* MedioUITests */ = {
+			isa = PBXGroup;
+			children = (
+				1000000000000000000000F0 /* MedioUITests.swift */,
+			);
+			path = MedioUITests;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		100000000000000000000100 /* Medio */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 100000000000000000000201 /* Build configuration list for PBXNativeTarget "Medio" */;
+			buildPhases = (
+				100000000000000000000102 /* Sources */,
+				100000000000000000000103 /* Resources */,
+				100000000000000000000101 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Medio;
+			productName = Medio;
+			productReference = 100000000000000000000010 /* Medio.app */;
+			productType = "com.apple.product-type.application";
+		};
+		100000000000000000000300 /* MedioTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 100000000000000000000310 /* Build configuration list for PBXNativeTarget "MedioTests" */;
+			buildPhases = (
+				100000000000000000000302 /* Sources */,
+				100000000000000000000301 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				100000000000000000000320 /* PBXTargetDependency */,
+			);
+			name = MedioTests;
+			productName = MedioTests;
+			productReference = 1000000000000000000000C0 /* MedioTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		100000000000000000000400 /* MedioUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 100000000000000000000410 /* Build configuration list for PBXNativeTarget "MedioUITests" */;
+			buildPhases = (
+				100000000000000000000402 /* Sources */,
+				100000000000000000000401 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				100000000000000000000420 /* PBXTargetDependency */,
+			);
+			name = MedioUITests;
+			productName = MedioUITests;
+			productReference = 1000000000000000000000C1 /* MedioUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		100000000000000000000200 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1600;
+				LastUpgradeCheck = 1600;
+				TargetAttributes = {
+					100000000000000000000100 = {
+						CreatedOnToolsVersion = 16.0;
+						LastSwiftMigration = 2650;
+					};
+				};
+			};
+			buildConfigurationList = 100000000000000000000202 /* Build configuration list for PBXProject "Medio" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 100000000000000000000020;
+			productRefGroup = 100000000000000000000030 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				100000000000000000000100 /* Medio */,
+				100000000000000000000300 /* MedioTests */,
+				100000000000000000000400 /* MedioUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		100000000000000000000103 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				100000000000000000000007 /* Assets.xcassets in Resources */,
+				FC68182C2FA26813004A829E /* AppIcon.icon in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		100000000000000000000102 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FC5A10032FD7000000000003 /* AppInfrastructure.swift in Sources */,
+				FC5A11052FD7000000000015 /* DesktopPositionStore.swift in Sources */,
+				FC5A11032FD7000000000013 /* FileMoveService.swift in Sources */,
+				FC5A11012FD7000000000011 /* ListeningHistory.swift in Sources */,
+				FC5A11072FD7000000000017 /* RootPageChrome.swift in Sources */,
+				FCF0CE5A2FB62B3500CBD573 /* Notifications.swift in Sources */,
+				FCF0CE5B2FB62B3500CBD573 /* QueueUseCases.swift in Sources */,
+				FCF0CE5C2FB62B3500CBD573 /* ViewModels.swift in Sources */,
+				FCF0CE5D2FB62B3500CBD573 /* SystemUI.swift in Sources */,
+				FC6F0BCF2FCC59A900F80BD6 /* EditMetadataView.swift in Sources */,
+				FC6F0BD22FCC59B700F80BD6 /* ArtistProfileRepository.swift in Sources */,
+				FC6F0BD32FCC59B700F80BD6 /* BatterySaverService.swift in Sources */,
+				FC5A10012FD7000000000001 /* SQLiteListeningHistoryRepository.swift in Sources */,
+				FCF0CE5E2FB62B3500CBD573 /* AppContainer.swift in Sources */,
+				FCF0CE5F2FB62B3500CBD573 /* PathDisplay.swift in Sources */,
+				FCF0CE602FB62B3500CBD573 /* FileLyricsRepository.swift in Sources */,
+				FCF0CE612FB62B3500CBD573 /* FileMetadataReader.swift in Sources */,
+				FCF0CE622FB62B3500CBD573 /* LyricsRepository.swift in Sources */,
+				FCF0CE632FB62B3500CBD573 /* Stores.swift in Sources */,
+				FCF0CE642FB62B3500CBD573 /* RootView.swift in Sources */,
+				FCB100022FB7000000000002 /* AppScreens.swift in Sources */,
+				FCB100042FB7000000000004 /* AppPanels.swift in Sources */,
+				FCB100062FB7000000000006 /* NowPlayingPanel.swift in Sources */,
+				FCB100082FB7000000000008 /* SettingsPanel.swift in Sources */,
+				FCB1000A2FB700000000000A /* LyricsOrganizationService.swift in Sources */,
+				FCB1000C2FB700000000000C /* AuxiliaryViews.swift in Sources */,
+				FCB1000E2FE000000000000E /* NavigationCompatibility.swift in Sources */,
+				FCB100102FE0000000000010 /* MissingLyricsService.swift in Sources */,
+				FCF0CE652FB62B3500CBD573 /* AppRouter.swift in Sources */,
+				FCF0CE662FB62B3500CBD573 /* DesignSystem.swift in Sources */,
+				FCF0CE672FB62B3500CBD573 /* BuildLibraryIndexUseCase.swift in Sources */,
+				FCF0CE682FB62B3500CBD573 /* PreferencesRepository.swift in Sources */,
+				FCF0CE692FB62B3500CBD573 /* UserDefaultsPreferencesRepository.swift in Sources */,
+				FCF0CE6A2FB62B3500CBD573 /* ImportDocumentsUseCase.swift in Sources */,
+				FCF0CE6C2FB62B3500CBD573 /* MediaLibraryRepository.swift in Sources */,
+				FCF0CE6D2FB62B3500CBD573 /* NowPlaying.swift in Sources */,
+				FCF0CE6E2FB62B3500CBD573 /* ScanLibraryUseCase.swift in Sources */,
+				FCF0CE6F2FB62B3500CBD573 /* AppRoutes.swift in Sources */,
+				FCF0CE702FB62B3500CBD573 /* MedioApp.swift in Sources */,
+				FCD3254C2FB69BEF00E9D0A8 /* LyricsFileAssociationRepository.swift in Sources */,
+				FCF0CE712FB62B3500CBD573 /* PlayMediaUseCase.swift in Sources */,
+				FCF0CE732FB62B3500CBD573 /* AudioPlaybackService.swift in Sources */,
+				FCF0CE742FB62B3500CBD573 /* UserDefaultsFavoritesRepository.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		100000000000000000000302 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1000000000000000000000E1 /* MedioTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		100000000000000000000402 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				1000000000000000000000F1 /* MedioUITests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		100000000000000000000320 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 100000000000000000000100 /* Medio */;
+			targetProxy = 1000000000000000000000D0 /* PBXContainerItemProxy */;
+		};
+		100000000000000000000420 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 100000000000000000000100 /* Medio */;
+			targetProxy = 1000000000000000000000D1 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		100000000000000000000210 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				MARKETING_VERSION = 1.0;
+				DEVELOPMENT_TEAM = R2H6FN8NZ5;
+				ENABLE_PREVIEWS = YES;
+				ENABLE_TESTABILITY = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Resources/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Medio;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.music";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.5;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.medio.vojtblasko;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		100000000000000000000211 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CLANG_ENABLE_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				MARKETING_VERSION = 1.0;
+				DEVELOPMENT_TEAM = R2H6FN8NZ5;
+				ENABLE_PREVIEWS = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Resources/Info.plist;
+				INFOPLIST_KEY_CFBundleDisplayName = Medio;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.music";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.5;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.medio.vojtblasko;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "";
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		100000000000000000000220 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.5;
+				PRODUCT_BUNDLE_IDENTIFIER = com.medio.vojtblasko;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Debug;
+		};
+		100000000000000000000221 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = "";
+				IPHONEOS_DEPLOYMENT_TARGET = 15.5;
+				PRODUCT_BUNDLE_IDENTIFIER = com.medio.vojtblasko;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Release;
+		};
+		100000000000000000000311 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CLANG_ENABLE_MODULES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.5;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.medio.vojtblasko.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
+				SWIFT_VERSION = 6.0;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Medio.app/Medio";
+			};
+			name = Debug;
+		};
+		100000000000000000000312 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CLANG_ENABLE_MODULES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.5;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.medio.vojtblasko.tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
+				SWIFT_VERSION = 6.0;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Medio.app/Medio";
+			};
+			name = Release;
+		};
+		100000000000000000000411 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.5;
+				PRODUCT_BUNDLE_IDENTIFIER = com.medio.vojtblasko.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
+				SWIFT_VERSION = 6.0;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Medio;
+			};
+			name = Debug;
+		};
+		100000000000000000000412 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 15.5;
+				PRODUCT_BUNDLE_IDENTIFIER = com.medio.vojtblasko.uitests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
+				SWIFT_VERSION = 6.0;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = Medio;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		100000000000000000000201 /* Build configuration list for PBXNativeTarget "Medio" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				100000000000000000000210 /* Debug */,
+				100000000000000000000211 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		100000000000000000000202 /* Build configuration list for PBXProject "Medio" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				100000000000000000000220 /* Debug */,
+				100000000000000000000221 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		100000000000000000000310 /* Build configuration list for PBXNativeTarget "MedioTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				100000000000000000000311 /* Debug */,
+				100000000000000000000312 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		100000000000000000000410 /* Build configuration list for PBXNativeTarget "MedioUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				100000000000000000000411 /* Debug */,
+				100000000000000000000412 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 100000000000000000000200 /* Project object */;
+}

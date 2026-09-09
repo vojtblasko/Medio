@@ -1,0 +1,38 @@
+{
+  "configurations" : [
+    {
+      "id" : "A7357206-4D72-4CE5-8619-C24534006857",
+      "name" : "Default",
+      "options" : {
+
+      }
+    }
+  ],
+  "defaultOptions" : {
+    "codeCoverage" : false,
+    "targetForVariableExpansion" : {
+      "containerPath" : "container:Medio.xcodeproj",
+      "identifier" : "100000000000000000000100",
+      "name" : "Medio"
+    }
+  },
+  "testTargets" : [
+    {
+      "parallelizable" : false,
+      "target" : {
+        "containerPath" : "container:Medio.xcodeproj",
+        "identifier" : "100000000000000000000300",
+        "name" : "MedioTests"
+      }
+    },
+    {
+      "parallelizable" : false,
+      "target" : {
+        "containerPath" : "container:Medio.xcodeproj",
+        "identifier" : "100000000000000000000400",
+        "name" : "MedioUITests"
+      }
+    }
+  ],
+  "version" : 1
+}

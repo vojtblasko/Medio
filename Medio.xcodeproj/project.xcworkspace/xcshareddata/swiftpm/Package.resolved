@@ -1,0 +1,24 @@
+{
+  "originHash" : "310f3c4e1c29e007d2f7197b718f784f6b4b891337b42e0bc0589280dcc7e240",
+  "pins" : [
+    {
+      "identity" : "alamofire",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/Alamofire/Alamofire.git",
+      "state" : {
+        "revision" : "7595cbcf59809f9977c5f6378500de2ad73b7ddb",
+        "version" : "5.12.0"
+      }
+    },
+    {
+      "identity" : "flacmetadatakit",
+      "kind" : "remoteSourceControl",
+      "location" : "https://github.com/claucambra/FLACMetadataKit.git",
+      "state" : {
+        "revision" : "2acd3561b24732720d7d8d97f9978f84aba3ec05",
+        "version" : "1.0.0"
+      }
+    }
+  ],
+  "version" : 3
+}
