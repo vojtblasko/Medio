@@ -765,10 +765,12 @@ struct SongArtworkView: View {
         Group {
             if let img = customArtwork {
                 Image(uiImage: img)
+                    .interpolation(.none)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
             } else if let img = cachedArtwork {
                 Image(uiImage: img)
+                    .interpolation(.none)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
             } else {
@@ -839,6 +841,7 @@ struct FolderArtworkView: View {
         Group {
             if let img = customArtwork {
                 Image(uiImage: img)
+                    .interpolation(.none)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
             } else if visualOverride?.folderColorRgba != nil || childImages.isEmpty {
@@ -847,6 +850,7 @@ struct FolderArtworkView: View {
                     .foregroundStyle(folderTint)
             } else if childImages.count == 1 {
                 Image(uiImage: childImages[0])
+                    .interpolation(.none)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
             } else {
@@ -880,12 +884,14 @@ struct FolderArtworkView: View {
             HStack(spacing: 1) {
                 VStack(spacing: 1) {
                     Image(uiImage: images[0])
+                        .interpolation(.none)
                         .resizable()
                         .aspectRatio(contentMode: .fill)
                         .frame(width: (geo.size.width - 1) / 2, height: images.count > 2 ? (geo.size.height - 1) / 2 : geo.size.height)
                         .clipped()
                     if images.count > 2 {
                         Image(uiImage: images[2])
+                            .interpolation(.none)
                             .resizable()
                             .aspectRatio(contentMode: .fill)
                             .frame(width: (geo.size.width - 1) / 2, height: (geo.size.height - 1) / 2)
@@ -894,6 +900,7 @@ struct FolderArtworkView: View {
                 }
                 if images.count > 1 {
                     Image(uiImage: images[1])
+                        .interpolation(.none)
                         .resizable()
                         .aspectRatio(contentMode: .fill)
                         .frame(width: (geo.size.width - 1) / 2)

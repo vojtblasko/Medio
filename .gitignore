@@ -4,6 +4,16 @@
 *.pyc
 *.swp
 .DS_Store
+# Local editor state, build output, and credentials
+xcuserdata/
+*.xcuserstate
+DerivedData/
+**/.obsidian/workspace.json
+.env
+.env.*
+!.env.example
+*.p12
+*.mobileprovision
 .atom/
 .build/
 .buildlog/

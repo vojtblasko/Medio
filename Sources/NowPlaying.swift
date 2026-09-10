@@ -736,10 +736,12 @@ final class MedioNowPlayingService: NowPlayingService {
     private static func preparedArtworkImage(from image: UIImage) -> UIImage {
         let maxSide: CGFloat = 768
         let longest = max(image.size.width, image.size.height)
-        guard longest > 0 else { return image }
-        let scale = min(1, maxSide / longest)
+        guard longest > maxSide else { return image }
+        let scale = maxSide / longest
         let targetSize = CGSize(width: image.size.width * scale, height: image.size.height * scale)
-        let renderer = UIGraphicsImageRenderer(size: targetSize)
+        let format = UIGraphicsImageRendererFormat.default()
+        format.scale = 1
+        let renderer = UIGraphicsImageRenderer(size: targetSize, format: format)
         return renderer.image { _ in
             image.draw(in: CGRect(origin: .zero, size: targetSize))
         }

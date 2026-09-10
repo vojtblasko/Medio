@@ -127,6 +127,7 @@ private struct SquareImageCropSheet: View {
                     ZStack {
                         Color.black.opacity(0.9)
                         Image(uiImage: image)
+                            .interpolation(.none)
                             .resizable()
                             .scaledToFill()
                             .scaleEffect(scale)
@@ -226,6 +227,8 @@ private struct SquareImageCropSheet: View {
         format.scale = 1
         let renderer = UIGraphicsImageRenderer(size: CGSize(width: targetSide, height: targetSide), format: format)
         return renderer.image { context in
+            // Preserve hard pixel edges when a small cover is enlarged by the crop.
+            context.cgContext.interpolationQuality = .none
             UIColor.systemBackground.setFill()
             context.fill(CGRect(x: 0, y: 0, width: targetSide, height: targetSide))
             image.draw(in: drawRect)
@@ -1003,6 +1006,7 @@ private struct AboutCoverThumbnail: View {
         Group {
             if let image = VisualArtworkOverrideStore.image(at: metadataOverride?.coverArtworkPath) {
                 Image(uiImage: image)
+                    .interpolation(.none)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
             } else if MedioShadowFolder.isFavorites(path) {
@@ -1786,6 +1790,7 @@ struct PrioritySlotAboutPanel: View {
     private var priorityPreview: some View {
         if let image = VisualArtworkOverrideStore.image(at: artworkPath) {
             Image(uiImage: image)
+                .interpolation(.none)
                 .resizable()
                 .aspectRatio(contentMode: .fill)
                 .frame(width: 60, height: 60)
@@ -2098,6 +2103,7 @@ private struct AlbumHeaderArtwork: View {
                 Group {
                     if let artwork {
                         Image(uiImage: artwork)
+                            .interpolation(.none)
                             .resizable()
                             .scaledToFill()
                     } else {

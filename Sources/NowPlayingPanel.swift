@@ -476,10 +476,12 @@ struct NowPlayingPanel: View {
                 .accessibilityAddTraits(.isButton)
             } else if let image = vm.artwork {
                 Image(uiImage: image)
+                    .interpolation(.none)
                     .resizable()
                     .aspectRatio(1, contentMode: .fit)
             } else if let path = vm.item?.id, let cached = artworkCache.image(for: path) {
                 Image(uiImage: cached)
+                    .interpolation(.none)
                     .resizable()
                     .aspectRatio(1, contentMode: .fit)
             } else {
