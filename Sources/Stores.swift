@@ -62,7 +62,7 @@ enum RepeatMode: String, Hashable {
 }
 
 enum PlaybackAudioLevels {
-    static let barCount = 6
+    static let barCount = 7
     static let resting = Array(repeating: 0.15, count: barCount)
 }
 
@@ -1471,7 +1471,7 @@ final class InMemoryPlaybackService: PlaybackService {
     func play() async {
         store.isPlaying = true
         store.playback.isPlaying = true
-        store.audioLevels = [0.36, 0.72, 0.52, 0.88, 0.44, 0.64]
+        store.audioLevels = [0.36, 0.72, 0.52, 0.88, 0.44, 0.64, 0.28]
     }
 
     func pause() async {

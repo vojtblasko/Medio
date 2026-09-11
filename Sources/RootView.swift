@@ -281,12 +281,16 @@ struct RootView: View {
         .environmentObject(batterySaver)
         .fullScreenCover(item: $router.fullScreenCover) { route in
             fullScreenCoverContent(for: route)
+                .background(SystemSheetHost(presenter: container.systemUIPresenter))
                 .environmentObject(router)
                 .environmentObject(container)
                 .environmentObject(container.playbackStore)
                 .environmentObject(batterySaver)
         }
-        .background(SystemSheetHost(presenter: container.systemUIPresenter))
+        .background(SystemSheetHost(
+            presenter: container.systemUIPresenter,
+            isActive: router.sheet == nil && router.fullScreenCover == nil
+        ))
         .sheet(item: $router.sheet, onDismiss: {
             router.resetSheetStack()
         }) { route in
@@ -297,6 +301,10 @@ struct RootView: View {
                 sheetNavigationContent(for: destination, isRoot: false)
                     .navigationBarTitleDisplayMode(.inline)
             }
+            .background(SystemSheetHost(
+                presenter: container.systemUIPresenter,
+                isActive: router.fullScreenCover == nil
+            ))
             .environmentObject(router)
             .environmentObject(container)
             .environmentObject(container.playbackStore)

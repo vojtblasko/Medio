@@ -1,5 +1,7 @@
 import XCTest
 import UIKit
+import SwiftUI
+import AVFoundation
 import UniformTypeIdentifiers
 import SQLite3
 @testable import Medio
@@ -2850,5 +2852,189 @@ final class PerformanceBaselineTests: XCTestCase {
             }
             XCTAssertEqual(matches, songs.count)
         }
+    }
+}
+
+final class AudioSpectrumAnalyzerTests: XCTestCase {
+    private let sampleRate = 48_000.0
+
+    private func tone(_ frequency: Double, amplitude: Double = 0.5) -> [Float] {
+        (0..<AudioSpectrumAnalyzer.sampleCount).map {
+            Float(amplitude * sin(2 * .pi * frequency * Double($0) / sampleRate))
+        }
+    }
+
+    func testEachTonePeaksInItsOwnFrequencyBand() {
+        let analyzer = AudioSpectrumAnalyzer()
+        for (expectedBand, frequency) in [60.0, 160, 400, 1_000, 2_500, 6_300, 15_000].enumerated() {
+            let levels = analyzer.levels(channels: [tone(frequency)], sampleRate: sampleRate)
+            XCTAssertEqual(levels.count, 7)
+            XCTAssertEqual(levels.indices.max(by: { levels[$0] < levels[$1] }), expectedBand, "\(frequency) Hz")
+            XCTAssertGreaterThan(levels[expectedBand], 0.8)
+        }
+    }
+
+    func testSimultaneousBassAndTrebleRemainSeparate() {
+        let bass = tone(60)
+        let treble = tone(15_000)
+        let mixed = zip(bass, treble).map { $0 + $1 }
+        let levels = AudioSpectrumAnalyzer().levels(channels: [mixed], sampleRate: sampleRate)
+        XCTAssertGreaterThan(levels[0], 0.8)
+        XCTAssertGreaterThan(levels[6], 0.8)
+        XCTAssertLessThan(levels[3], 0.25)
+    }
+
+    func testSilenceAndAmplitude() {
+        let analyzer = AudioSpectrumAnalyzer()
+        let silence = [Float](repeating: 0, count: AudioSpectrumAnalyzer.sampleCount)
+        XCTAssertEqual(analyzer.levels(channels: [silence], sampleRate: sampleRate), PlaybackAudioLevels.resting)
+        let quiet = analyzer.levels(channels: [tone(1_000, amplitude: 0.01)], sampleRate: sampleRate)
+        let loud = analyzer.levels(channels: [tone(1_000, amplitude: 0.5)], sampleRate: sampleRate)
+        XCTAssertGreaterThan(loud[3], quiet[3] + 0.3)
+    }
+
+    func testOppositePhaseStereoDoesNotCancelSpectrum() {
+        let samples = tone(1_000)
+        let analyzer = AudioSpectrumAnalyzer()
+        let mono = analyzer.levels(channels: [samples], sampleRate: sampleRate)
+        let stereo = analyzer.levels(channels: [samples, samples.map { -$0 }], sampleRate: sampleRate)
+        for index in mono.indices {
+            XCTAssertEqual(mono[index], stereo[index], accuracy: 0.001)
+        }
+    }
+
+    func testFileSpectrumFollowsSeekPositionAndStopsAtEnd() async throws {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString).appendingPathExtension("wav")
+        defer { try? FileManager.default.removeItem(at: url) }
+        try writeChangingTone(to: url)
+        let reader = AudioSpectrumReader()
+        let bass = await reader.levels(for: url.path, atMs: 200)
+        let treble = await reader.levels(for: url.path, atMs: 1_200)
+        let end = await reader.levels(for: url.path, atMs: 2_100)
+        XCTAssertGreaterThan(bass[0], 0.8)
+        XCTAssertLessThan(bass[6], 0.25)
+        XCTAssertGreaterThan(treble[6], 0.8)
+        XCTAssertLessThan(treble[0], 0.25)
+        XCTAssertEqual(end, PlaybackAudioLevels.resting)
+    }
+
+    private func writeChangingTone(to url: URL) throws {
+        let format = try XCTUnwrap(AVAudioFormat(standardFormatWithSampleRate: sampleRate, channels: 1))
+        let buffer = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: AVAudioFrameCount(sampleRate * 2)))
+        buffer.frameLength = buffer.frameCapacity
+        let samples = try XCTUnwrap(buffer.floatChannelData?[0])
+        for index in 0..<Int(buffer.frameLength) {
+            let frequency = Double(index) < sampleRate ? 60.0 : 15_000.0
+            samples[index] = Float(0.5 * sin(2 * .pi * frequency * Double(index) / sampleRate))
+        }
+        let file = try AVAudioFile(forWriting: url, settings: format.settings)
+        try file.write(from: buffer)
+    }
+}
+
+@MainActor
+final class SystemUIPresenterTests: XCTestCase {
+    func testResultArrivesAfterDismissalAndNextPickerCanOpen() async throws {
+        let presenter = SystemUIPresenter()
+        let service = MedioPhotoPickingService(presenter: presenter)
+        let first = Task { try await service.pickImage() }
+        await Task.yield()
+        XCTAssertNotNil(presenter.sheet)
+        let data = Data([1, 2, 3])
+        presenter.complete(.success(.image(data)))
+        XCTAssertNil(presenter.sheet)
+        presenter.didDismiss()
+        let result = try await first.value
+        XCTAssertEqual(result, data)
+
+        let second = Task { try await service.pickImage() }
+        await Task.yield()
+        XCTAssertNotNil(presenter.sheet)
+        presenter.dismiss()
+        presenter.didDismiss()
+        presenter.didDismiss() // SwiftUI must not resume a continuation twice.
+        do {
+            _ = try await second.value
+            XCTFail("Dismissing the picker should cancel the request")
+        } catch {
+            XCTAssertTrue(error is SystemUIError)
+        }
+    }
+
+    func testConcurrentPickerRequestIsRejectedWithoutLosingFirstRequest() async throws {
+        let presenter = SystemUIPresenter()
+        let service = MedioPhotoPickingService(presenter: presenter)
+        let first = Task { try await service.pickImage() }
+        await Task.yield()
+        do {
+            _ = try await service.pickImage()
+            XCTFail("A second request should not overwrite the active continuation")
+        } catch SystemUIError.presentationUnavailable {
+            // Expected.
+        }
+        presenter.complete(.success(.image(Data([7]))))
+        presenter.didDismiss()
+        let result = try await first.value
+        XCTAssertEqual(result, Data([7]))
+    }
+}
+
+@MainActor
+final class MediaArtworkRenderingTests: XCTestCase {
+    @available(iOS 16.0, *)
+    private func pixels<V: View>(of view: V, width: Int, height: Int) throws -> [UInt8] {
+        let renderer = ImageRenderer(content: view.frame(width: CGFloat(width), height: CGFloat(height)))
+        renderer.scale = 1
+        let image = try XCTUnwrap(renderer.cgImage)
+        var bytes = [UInt8](repeating: 0, count: width * height * 4)
+        let context = try XCTUnwrap(CGContext(
+            data: &bytes, width: width, height: height, bitsPerComponent: 8, bytesPerRow: width * 4,
+            space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ))
+        context.draw(image, in: CGRect(x: 0, y: 0, width: width, height: height))
+        return bytes
+    }
+
+    func testPortraitLandscapeAndSquareCoversKeepTheirProportions() throws {
+        guard #available(iOS 16.0, *) else { throw XCTSkip("ImageRenderer requires iOS 16") }
+        for size in [CGSize(width: 240, height: 120), CGSize(width: 120, height: 240), CGSize(width: 120, height: 120)] {
+            let format = UIGraphicsImageRendererFormat()
+            format.scale = 1
+            let image = UIGraphicsImageRenderer(size: size, format: format).image { context in
+                UIColor.red.setFill()
+                context.fill(CGRect(origin: .zero, size: size))
+            }
+            let bytes = try pixels(of: MediaCoverArtwork(image: image), width: 200, height: 200)
+            var minX = 200, minY = 200, maxX = 0, maxY = 0
+            for y in 0..<200 {
+                for x in 0..<200 where bytes[(y * 200 + x) * 4 + 3] > 128 {
+                    minX = min(minX, x); maxX = max(maxX, x)
+                    minY = min(minY, y); maxY = max(maxY, y)
+                }
+            }
+            XCTAssertLessThan(minX, maxX)
+            XCTAssertEqual(Double(maxX - minX + 1) / Double(maxY - minY + 1), Double(size.width / size.height), accuracy: 0.03)
+        }
+    }
+
+    func testSevenSpectrumBarsAreMirroredAroundTheirCentre() throws {
+        guard #available(iOS 16.0, *) else { throw XCTSkip("ImageRenderer requires iOS 16") }
+        let view = NowPlayingAudioVisualizer(
+            isPlaying: true, levels: [0.2, 0.4, 0.8, 1, 0.7, 0.5, 0.3],
+            color: .red, size: CGSize(width: 140, height: 100)
+        )
+        let bytes = try pixels(of: view, width: 140, height: 100)
+        func filled(_ x: Int, _ y: Int) -> Bool { bytes[(y * 140 + x) * 4 + 3] > 128 }
+        var barCount = 0
+        var previous = false
+        for x in 0..<140 {
+            let current = filled(x, 50)
+            if current && !previous { barCount += 1 }
+            previous = current
+            for y in 0..<50 {
+                XCTAssertEqual(filled(x, y), filled(x, 99 - y), "Bar must grow equally upward and downward")
+            }
+        }
+        XCTAssertEqual(barCount, 7)
     }
 }

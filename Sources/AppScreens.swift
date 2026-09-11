@@ -2811,7 +2811,7 @@ private struct HomePrioritySlotCard: View {
         Group {
             if let imageOnlyArtwork {
                 Image(uiImage: imageOnlyArtwork)
-                    .interpolation(.none)
+                    .interpolation(.high)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
                     .frame(
@@ -2901,7 +2901,7 @@ private struct HomePrioritySlotCard: View {
         case .empty(let storageSlot):
             if let image = VisualArtworkOverrideStore.image(at: settingsStore.prioritySlotArtworkPath(at: storageSlot)) {
                 Image(uiImage: image)
-                    .interpolation(.none)
+                    .interpolation(.high)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
                     .frame(width: iconSize, height: iconSize)

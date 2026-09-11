@@ -127,7 +127,7 @@ private struct SquareImageCropSheet: View {
                     ZStack {
                         Color.black.opacity(0.9)
                         Image(uiImage: image)
-                            .interpolation(.none)
+                            .interpolation(.high)
                             .resizable()
                             .scaledToFill()
                             .scaleEffect(scale)
@@ -1006,7 +1006,7 @@ private struct AboutCoverThumbnail: View {
         Group {
             if let image = VisualArtworkOverrideStore.image(at: metadataOverride?.coverArtworkPath) {
                 Image(uiImage: image)
-                    .interpolation(.none)
+                    .interpolation(.high)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
             } else if MedioShadowFolder.isFavorites(path) {
@@ -1790,7 +1790,7 @@ struct PrioritySlotAboutPanel: View {
     private var priorityPreview: some View {
         if let image = VisualArtworkOverrideStore.image(at: artworkPath) {
             Image(uiImage: image)
-                .interpolation(.none)
+                .interpolation(.high)
                 .resizable()
                 .aspectRatio(contentMode: .fill)
                 .frame(width: 60, height: 60)
@@ -1816,6 +1816,8 @@ struct PrioritySlotAboutPanel: View {
             } else {
                 applyImage(image)
             }
+        } catch SystemUIError.cancelled {
+            return
         } catch {
             errorMessage = error.localizedDescription
             showError = true
@@ -2099,29 +2101,20 @@ private struct AlbumHeaderArtwork: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            ZStack {
-                Group {
-                    if let artwork {
-                        Image(uiImage: artwork)
-                            .interpolation(.none)
-                            .resizable()
-                            .scaledToFill()
-                    } else {
-                        ZStack {
-                            Color(.systemGray5)
-                            Image(systemName: "square.stack")
-                                .font(.system(size: 72, weight: .medium))
-                                .foregroundStyle(.secondary)
-                        }
+            Group {
+                if let artwork {
+                    MediaCoverArtwork(image: artwork)
+                        .frame(maxWidth: .infinity)
+                } else {
+                    ZStack {
+                        Color(.systemGray5)
+                        Image(systemName: "square.stack")
+                            .font(.system(size: 72, weight: .medium))
+                            .foregroundStyle(.secondary)
                     }
+                    .aspectRatio(1, contentMode: .fit)
                 }
-                .frame(maxWidth: .infinity)
-                .aspectRatio(1, contentMode: .fill)
-                .clipped()
             }
-            .frame(maxWidth: .infinity)
-            .aspectRatio(1, contentMode: .fit)
-            .clipped()
 
             Text(subtitle)
                 .font(.subheadline.weight(.medium))

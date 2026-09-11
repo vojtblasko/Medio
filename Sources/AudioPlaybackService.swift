@@ -1,5 +1,6 @@
 @preconcurrency import AVFoundation
 import Combine
+import Accelerate
 import CoreGraphics
 @preconcurrency import Foundation
 
@@ -32,9 +33,11 @@ final class AudioPlaybackService: NSObject, PlaybackService, PlaybackServicePubl
     private var requestedPlaying: Bool? = nil
     private let playerWindowSize = 3
     private var playerItemIndices: [ObjectIdentifier: Int] = [:]
-    private var waveformCache: [String: AudioWaveform] = [:]
-    private var waveformLoadTask: Task<Void, Never>? = nil
-    private var waveformLoadPath: String? = nil
+    private let spectrumReader = AudioSpectrumReader()
+    private var spectrumTask: Task<Void, Never>?
+    private var spectrumRequestID: UUID?
+    private var spectrumPath: String?
+    private var spectrumPositionMs: Int?
 
     // Serialize player operations to avoid races when commands arrive rapidly.
     private var lastOperation: Task<Void, Never>? = nil
@@ -84,7 +87,7 @@ final class AudioPlaybackService: NSObject, PlaybackService, PlaybackServicePubl
         statusObservation?.invalidate()
         currentItemObservation?.invalidate()
         if let didPlayToEndObserver { NotificationCenter.default.removeObserver(didPlayToEndObserver) }
-        waveformLoadTask?.cancel()
+        spectrumTask?.cancel()
     }
 
     // MARK: - PlaybackService
@@ -334,7 +337,7 @@ private extension AudioPlaybackService {
             }
         }
 
-        let interval = CMTime(seconds: 0.18, preferredTimescale: 600)
+        let interval = CMTime(seconds: 0.10, preferredTimescale: 600)
         timeObserver = player.addPeriodicTimeObserver(forInterval: interval, queue: .main) { [weak self] _ in
             Task { @MainActor in
                 guard let self else { return }
@@ -494,12 +497,12 @@ private extension AudioPlaybackService {
         order = arr
     }
 
-    func publishUpdate() {
+    func publishUpdate(refreshSpectrum: Bool = true) {
         let item: MediaItem? = {
             guard let idx = currentIndex, queue.indices.contains(idx) else { return nil }
             return queue[idx]
         }()
-        refreshAudioLevels(for: item)
+        if refreshSpectrum { refreshAudioLevels(for: item) }
 
         updatesSubject.send(
             PlaybackUpdate(
@@ -518,51 +521,44 @@ private extension AudioPlaybackService {
 
     func refreshAudioLevels(for item: MediaItem?) {
         guard isPlaying, let item, !item.isVideo else {
+            spectrumTask?.cancel()
+            spectrumTask = nil
+            spectrumRequestID = nil
+            spectrumPositionMs = nil
             audioLevels = PlaybackAudioLevels.resting
             return
         }
 
-        if let waveform = waveformCache[item.id] {
-            audioLevels = waveform.levels(atMs: positionMs, barCount: PlaybackAudioLevels.barCount)
-            return
+        if spectrumPath != item.id {
+            spectrumTask?.cancel()
+            spectrumTask = nil
+            spectrumPositionMs = nil
+            spectrumPath = item.id
+            audioLevels = PlaybackAudioLevels.resting
         }
+        guard spectrumTask == nil else { return }
+        if let previousPosition = spectrumPositionMs, abs(positionMs - previousPosition) < 75 { return }
 
-        audioLevels = PlaybackAudioLevels.resting
-        guard waveformLoadPath != item.id else { return }
-
-        waveformLoadTask?.cancel()
-        waveformLoadPath = item.id
         let path = item.id
-        waveformLoadTask = Task {
-            let waveform = await Self.loadWaveform(for: path)
-            guard !Task.isCancelled else { return }
-            await MainActor.run {
-                guard self.waveformLoadPath == path else { return }
-                self.waveformLoadPath = nil
-                self.waveformLoadTask = nil
-                if let waveform {
-                    self.waveformCache[path] = waveform
-                }
-                if self.currentItemID == path {
-                    self.publishUpdate()
-                }
-            }
+        let sampledPosition = positionMs
+        let requestID = UUID()
+        spectrumPositionMs = sampledPosition
+        spectrumRequestID = requestID
+        let reader = spectrumReader
+        spectrumTask = Task { [weak self] in
+            let levels = await reader.levels(for: path, atMs: sampledPosition)
+            guard !Task.isCancelled, let self, self.spectrumRequestID == requestID else { return }
+            self.spectrumTask = nil
+            guard self.isPlaying, self.currentItemID == path,
+                  abs(self.positionMs - sampledPosition) < 250 else { return }
+            self.audioLevels = levels
+            self.publishUpdate(refreshSpectrum: false)
         }
     }
 
     var currentItemID: String? {
         guard let idx = currentIndex, queue.indices.contains(idx) else { return nil }
         return queue[idx].id
-    }
-
-    nonisolated static func loadWaveform(for path: String) async -> AudioWaveform? {
-        await Task.detached(priority: .utility) {
-            do {
-                return try AudioWaveform.load(from: path)
-            } catch {
-                return nil
-            }
-        }.value
     }
 }
 
@@ -572,89 +568,89 @@ private extension CMTime {
     }
 }
 
-private struct AudioWaveform: Sendable {
-    let durationMs: Int
-    let levels: [Double]
+/// Reads only a short window at the playhead. Work and memory stay bounded even for long tracks.
+actor AudioSpectrumReader {
+    private var path: String?
+    private var file: AVAudioFile?
+    private var buffer: AVAudioPCMBuffer?
+    private let analyzer = AudioSpectrumAnalyzer()
 
-    static func load(from path: String) throws -> AudioWaveform? {
-        let file = try AVAudioFile(forReading: URL(fileURLWithPath: path))
-        let format = file.processingFormat
-        guard format.commonFormat == .pcmFormatFloat32 else { return nil }
-
-        let sampleRate = format.sampleRate
-        let totalFrames = file.length
-        guard sampleRate > 0, totalFrames > 0 else { return nil }
-
-        let durationSeconds = Double(totalFrames) / sampleRate
-        let durationMs = Int((durationSeconds * 1000).rounded())
-        let binCount = min(1_200, max(120, Int((durationSeconds * 5).rounded())))
-        var sums = Array(repeating: 0.0, count: binCount)
-        var counts = Array(repeating: 0, count: binCount)
-
-        let chunkFrameCount: AVAudioFrameCount = 16_384
-        guard let buffer = AVAudioPCMBuffer(pcmFormat: format, frameCapacity: chunkFrameCount) else {
-            return nil
-        }
-
-        let channelCount = max(1, Int(format.channelCount))
-        let sampleStride = max(1, Int(sampleRate / 220))
-
-        while file.framePosition < totalFrames {
-            let startFrame = file.framePosition
-            let remaining = totalFrames - startFrame
-            let framesToRead = AVAudioFrameCount(min(Int64(chunkFrameCount), remaining))
-            try file.read(into: buffer, frameCount: framesToRead)
-            let frameLength = Int(buffer.frameLength)
-            guard frameLength > 0, let floatData = buffer.floatChannelData else { break }
-
-            for frame in stride(from: 0, to: frameLength, by: sampleStride) {
-                let absoluteFrame = startFrame + AVAudioFramePosition(frame)
-                let bin = min(
-                    binCount - 1,
-                    max(0, Int((Double(absoluteFrame) / Double(totalFrames)) * Double(binCount)))
-                )
-                var sampleTotal = 0.0
-                if format.isInterleaved {
-                    let interleaved = floatData[0]
-                    for channel in 0..<channelCount {
-                        sampleTotal += Double(abs(interleaved[frame * channelCount + channel]))
-                    }
-                } else {
-                    for channel in 0..<channelCount {
-                        sampleTotal += Double(abs(floatData[channel][frame]))
-                    }
-                }
-                sums[bin] += sampleTotal / Double(channelCount)
-                counts[bin] += 1
+    func levels(for path: String, atMs positionMs: Int) -> [Double] {
+        guard !Task.isCancelled else { return PlaybackAudioLevels.resting }
+        if self.path != path {
+            self.path = path
+            file = try? AVAudioFile(forReading: URL(fileURLWithPath: path), commonFormat: .pcmFormatFloat32, interleaved: false)
+            buffer = file.flatMap {
+                AVAudioPCMBuffer(pcmFormat: $0.processingFormat, frameCapacity: AVAudioFrameCount(AudioSpectrumAnalyzer.sampleCount))
             }
         }
-
-        var rawLevels = sums.enumerated().map { index, value in
-            counts[index] > 0 ? value / Double(counts[index]) : 0
+        guard let file, let buffer, file.length > 0 else { return PlaybackAudioLevels.resting }
+        let sampleRate = file.processingFormat.sampleRate
+        guard sampleRate > 0 else { return PlaybackAudioLevels.resting }
+        let targetFrame = AVAudioFramePosition(Double(max(0, positionMs)) * sampleRate / 1_000)
+        guard targetFrame < file.length else { return PlaybackAudioLevels.resting }
+        do {
+            file.framePosition = targetFrame
+            try file.read(into: buffer, frameCount: AVAudioFrameCount(AudioSpectrumAnalyzer.sampleCount))
+            guard !Task.isCancelled, let samples = buffer.floatChannelData else { return PlaybackAudioLevels.resting }
+            let channels = (0..<Int(buffer.format.channelCount)).map { channel in
+                Array(UnsafeBufferPointer(start: samples[channel], count: Int(buffer.frameLength)))
+            }
+            return analyzer.levels(channels: channels, sampleRate: sampleRate)
+        } catch {
+            // Unsupported or corrupt media should not trigger repeated reads on every UI tick.
+            self.file = nil
+            self.buffer = nil
+            return PlaybackAudioLevels.resting
         }
-        let sorted = rawLevels.sorted()
-        let referenceIndex = min(sorted.count - 1, max(0, Int(Double(sorted.count - 1) * 0.92)))
-        let reference = max(sorted[referenceIndex], 0.000_001)
-        rawLevels = rawLevels.map { value in
-            let normalized = min(1, max(0, value / reference))
-            return max(0.15, pow(normalized, 0.55))
-        }
+    }
+}
 
-        return AudioWaveform(durationMs: durationMs, levels: rawLevels)
+/// Seven low-to-high frequency bands from a Hann-windowed Fourier transform, not time samples.
+final class AudioSpectrumAnalyzer {
+    static let sampleCount = 4_096
+    static let bandEdges: [Double] = [20, 100, 250, 630, 1_600, 4_000, 10_000, 24_000]
+    private let transform = vDSP_DFT_zop_CreateSetup(nil, vDSP_Length(sampleCount), .FORWARD)
+    private let window: [Float] = (0..<sampleCount).map {
+        Float(0.5 - 0.5 * cos(2 * Double.pi * Double($0) / Double(sampleCount - 1)))
     }
 
-    func levels(atMs positionMs: Int, barCount: Int) -> [Double] {
-        guard durationMs > 0, !levels.isEmpty else {
-            return Array(repeating: 0.15, count: barCount)
-        }
-        let progress = min(1, max(0, Double(positionMs) / Double(durationMs)))
-        let centerIndex = Int((progress * Double(levels.count - 1)).rounded())
-        let offsets = [-2, -1, 0, 1, 2, 3]
+    deinit {
+        if let transform { vDSP_DFT_DestroySetup(transform) }
+    }
 
-        return (0..<barCount).map { index in
-            let offset = index < offsets.count ? offsets[index] : index - (barCount / 2)
-            let levelIndex = min(levels.count - 1, max(0, centerIndex + offset))
-            return max(0.15, min(1, levels[levelIndex]))
+    func levels(channels: [[Float]], sampleRate: Double) -> [Double] {
+        guard let transform, sampleRate.isFinite, sampleRate > 0, !channels.isEmpty else {
+            return PlaybackAudioLevels.resting
+        }
+        let count = Self.sampleCount
+        var powers = [Double](repeating: 0, count: count / 2 + 1)
+        let imaginaryInput = [Float](repeating: 0, count: count)
+        var realOutput = imaginaryInput
+        var imaginaryOutput = imaginaryInput
+        for channel in channels {
+            var input = imaginaryInput
+            for index in 0..<min(count, channel.count) {
+                input[index] = channel[index].isFinite ? channel[index] * window[index] : 0
+            }
+            vDSP_DFT_Execute(transform, input, imaginaryInput, &realOutput, &imaginaryOutput)
+            for index in powers.indices {
+                let real = Double(realOutput[index])
+                let imaginary = Double(imaginaryOutput[index])
+                powers[index] += real * real + imaginary * imaginary
+            }
+        }
+        // Combine channel power, so opposite-phase stereo channels cannot cancel each other.
+        let windowSum = Double(window.reduce(0, +))
+        let normalization = 4 / (windowSum * windowSum * Double(channels.count))
+        let resolution = sampleRate / Double(count)
+        return (0..<PlaybackAudioLevels.barCount).map { band in
+            let lower = max(1, Int(ceil(Self.bandEdges[band] / resolution)))
+            let upper = min(powers.count, Int(ceil(min(Self.bandEdges[band + 1], sampleRate / 2) / resolution)))
+            guard lower < upper else { return 0.15 }
+            let power = powers[lower..<upper].reduce(0, +) * normalization
+            let decibels = 10 * log10(max(power, 1e-12))
+            return 0.15 + 0.85 * min(1, max(0, (decibels + 65) / 65))
         }
     }
 }

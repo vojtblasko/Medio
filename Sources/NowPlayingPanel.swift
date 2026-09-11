@@ -475,15 +475,11 @@ struct NowPlayingPanel: View {
                 .accessibilityLabel("Fullscreen Video")
                 .accessibilityAddTraits(.isButton)
             } else if let image = vm.artwork {
-                Image(uiImage: image)
-                    .interpolation(.none)
-                    .resizable()
-                    .aspectRatio(1, contentMode: .fit)
+                MediaCoverArtwork(image: image)
+                    .frame(maxHeight: usesCompactRootChrome ? 200 : 340)
             } else if let path = vm.item?.id, let cached = artworkCache.image(for: path) {
-                Image(uiImage: cached)
-                    .interpolation(.none)
-                    .resizable()
-                    .aspectRatio(1, contentMode: .fit)
+                MediaCoverArtwork(image: cached)
+                    .frame(maxHeight: usesCompactRootChrome ? 200 : 340)
             } else {
                 ZStack {
                     RoundedRectangle(cornerRadius: 18)

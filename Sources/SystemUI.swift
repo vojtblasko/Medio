@@ -38,20 +38,49 @@ enum SystemUIError: Error, LocalizedError {
 @MainActor
 final class SystemUIPresenter: ObservableObject {
     @Published var sheet: SystemSheet? = nil
+    private var presentedSheet: SystemSheet?
+    private var pendingResult: Swift.Result<SystemSheet.Result, Error>?
 
     fileprivate func present(_ sheet: SystemSheet) async throws -> SystemSheet.Result {
-        try await withCheckedThrowingContinuation { cont in
-            self.sheet = sheet.withContinuation(cont)
+        guard presentedSheet == nil else { throw SystemUIError.presentationUnavailable }
+        return try await withCheckedThrowingContinuation { cont in
+            let presented = sheet.withContinuation(cont)
+            presentedSheet = presented
+            self.sheet = presented
         }
     }
 
-    fileprivate func dismiss() {
+    func complete(_ result: Swift.Result<SystemSheet.Result, Error>) {
+        guard presentedSheet != nil, pendingResult == nil else { return }
+        pendingResult = result
         sheet = nil
+    }
+
+    func dismiss() {
+        sheet = nil
+    }
+
+    func didDismiss() {
+        guard let presented = presentedSheet else { return }
+        let result = pendingResult ?? .failure(SystemUIError.cancelled)
+        presentedSheet = nil
+        pendingResult = nil
+        sheet = nil
+        // Resume only after dismissal so callers can safely present the crop editor next.
+        switch presented {
+        case .photoPicker(let continuation), .documentPicker(_, _, let continuation):
+            continuation?.resume(with: result)
+        }
     }
 }
 
+enum SystemSheetResult: Sendable {
+    case image(Data)
+    case documents([URL])
+}
+
 enum SystemSheet: Identifiable {
-    typealias Result = Any
+    typealias Result = SystemSheetResult
 
     case photoPicker(continuation: CheckedContinuation<Result, Error>?)
     case documentPicker(types: [UTType], multiple: Bool, continuation: CheckedContinuation<Result, Error>?)
@@ -86,7 +115,7 @@ final class MedioPhotoPickingService: PhotoPickingService {
 
     func pickImage() async throws -> Data {
         let result = try await presenter.present(.photoPicker(continuation: nil))
-        guard let data = result as? Data else { throw SystemUIError.invalidSelection }
+        guard case .image(let data) = result else { throw SystemUIError.invalidSelection }
         return data
     }
 }
@@ -103,7 +132,7 @@ final class MedioDocumentPickingService: DocumentPickingService {
         let result = try await presenter.present(
             .documentPicker(types: contentTypes, multiple: allowsMultipleSelection, continuation: nil)
         )
-        guard let urls = result as? [URL] else { throw SystemUIError.invalidSelection }
+        guard case .documents(let urls) = result else { throw SystemUIError.invalidSelection }
         return urls
     }
 }
@@ -112,49 +141,25 @@ final class MedioDocumentPickingService: DocumentPickingService {
 
 struct SystemSheetHost: View {
     @ObservedObject var presenter: SystemUIPresenter
-    @State private var completionAfterDismiss: (() -> Void)?
+    var isActive = true
 
     var body: some View {
         EmptyView()
             .sheet(
                 item: Binding<SystemSheet?>(
-                    get: { presenter.sheet },
+                    get: { isActive ? presenter.sheet : nil },
                     set: { _ in presenter.dismiss() }
                 ),
-                onDismiss: {
-                    let completion = completionAfterDismiss
-                    completionAfterDismiss = nil
-                    completion?()
-                }
+                onDismiss: presenter.didDismiss
             ) { sheet in
                 switch sheet {
-                case .photoPicker(let cont):
+                case .photoPicker:
                     PhotoPickerView { result in
-                        Task { @MainActor in
-                            completionAfterDismiss = {
-                                switch result {
-                                case .success(let data):
-                                    cont?.resume(returning: data as Any)
-                                case .failure(let err):
-                                    cont?.resume(throwing: err)
-                                }
-                            }
-                            presenter.dismiss()
-                        }
+                        presenter.complete(result.map(SystemSheetResult.image))
                     }
-                case .documentPicker(let types, let multiple, let cont):
+                case .documentPicker(let types, let multiple, _):
                     DocumentPickerView(contentTypes: types, allowsMultipleSelection: multiple) { result in
-                        Task { @MainActor in
-                            completionAfterDismiss = {
-                                switch result {
-                                case .success(let urls):
-                                    cont?.resume(returning: urls as Any)
-                                case .failure(let err):
-                                    cont?.resume(throwing: err)
-                                }
-                            }
-                            presenter.dismiss()
-                        }
+                        presenter.complete(result.map(SystemSheetResult.documents))
                     }
                 }
             }

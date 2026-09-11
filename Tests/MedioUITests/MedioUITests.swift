@@ -185,8 +185,37 @@ final class MedioUITests: XCTestCase {
         // A slot whose saved image disappeared must also behave like a normal folder slot.
         app.buttons["Choose priority folder 1"].tap()
         wait(app.navigationBars["Priority Folder"])
-        app.buttons["Example Folder"].tap()
-        wait(app.buttons["Example Folder"])
+        app.buttons["Example Folder, Example Folder"].tap()
+        wait(app.buttons["Home Options"])
+        XCTAssertFalse(app.buttons["Choose priority folder 1"].exists)
+    }
+
+    func testPriorityImagePickersPresentAboveTheOpenPanel() {
+        let app = makeApp()
+        app.launch()
+        let card = app.buttons["Choose priority folder 2"]
+        wait(card)
+        card.press(forDuration: 1)
+        wait(app.buttons["Make Image"])
+        app.buttons["Make Image"].tap()
+        wait(app.navigationBars["Make Priority Image"])
+
+        for source in ["Choose from Files", "Choose from Photos"] {
+            app.buttons["Choose Image"].tap()
+            wait(app.buttons[source])
+            app.buttons[source].tap()
+            let cancel = app.buttons["Cancel"].firstMatch
+            wait(cancel)
+            XCTAssertTrue(cancel.isHittable)
+            let screenshot = XCTAttachment(screenshot: app.screenshot())
+            screenshot.name = "Priority image picker - \(source)"
+            screenshot.lifetime = .keepAlways
+            add(screenshot)
+            cancel.tap()
+            wait(app.buttons["Choose Image"])
+            XCTAssertTrue(app.buttons["Choose Image"].isHittable)
+            XCTAssertFalse(app.alerts["Priority Image"].exists)
+        }
     }
 
     func testHomeDesktopStyleLongPressCanSelectOneTile() {

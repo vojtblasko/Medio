@@ -554,68 +554,28 @@ struct NowPlayingAudioVisualizer: View {
     var color: Color = .accentColor
     var size = CGSize(width: 24, height: 24)
 
-    private struct Bar: Identifiable {
-        let id: Int
-        let speed: Double
-        let delay: Double
-        let duration: Double
-    }
-
-    private let bars: [Bar] = [
-        Bar(id: 0, speed: 1.10, delay: 0.00, duration: 0.16),
-        Bar(id: 1, speed: 0.82, delay: 0.02, duration: 0.14),
-        Bar(id: 2, speed: 1.34, delay: 0.04, duration: 0.18),
-        Bar(id: 3, speed: 0.96, delay: 0.01, duration: 0.15),
-        Bar(id: 4, speed: 1.22, delay: 0.05, duration: 0.17),
-        Bar(id: 5, speed: 0.74, delay: 0.03, duration: 0.14)
-    ]
-
-    private var restingHeight: CGFloat {
-        size.height * 0.15
-    }
-
+    private var barSpacing: CGFloat { max(1, size.width * 0.045) }
     private var barWidth: CGFloat {
-        max(2, size.width / 9)
-    }
-
-    private var barSpacing: CGFloat {
-        max(1.5, size.width / 18)
+        max(1, (size.width - CGFloat(PlaybackAudioLevels.barCount - 1) * barSpacing) / CGFloat(PlaybackAudioLevels.barCount))
     }
 
     var body: some View {
-        HStack(alignment: .bottom, spacing: barSpacing) {
-            ForEach(bars) { bar in
-                RoundedRectangle(cornerRadius: barWidth * 0.45, style: .continuous)
+        HStack(alignment: .center, spacing: barSpacing) {
+            ForEach(0..<PlaybackAudioLevels.barCount, id: \.self) { index in
+                Capsule()
                     .fill(color)
-                    .frame(width: barWidth, height: height(for: bar))
-                    .animation(animation(for: bar), value: level(for: bar))
+                    .frame(width: barWidth, height: size.height * CGFloat(level(at: index)))
+                    .animation(.easeOut(duration: 0.10), value: level(at: index))
             }
         }
-        .frame(width: size.width, height: size.height, alignment: .bottom)
+        // Each bar's two halves grow equally away from the horizontal centre line.
+        .frame(width: size.width, height: size.height, alignment: .center)
         .accessibilityHidden(true)
     }
 
-    private func height(for bar: Bar) -> CGFloat {
-        guard isPlaying else {
-            return restingHeight
-        }
-        return max(restingHeight, size.height * CGFloat(level(for: bar)))
-    }
-
-    private func level(for bar: Bar) -> Double {
-        guard isPlaying else { return 0.15 }
-        let level = levels.indices.contains(bar.id) ? levels[bar.id] : 0.15
-        return min(1, max(0.15, level))
-    }
-
-    private func animation(for bar: Bar) -> Animation {
-        if isPlaying {
-            return Animation
-                .easeInOut(duration: bar.duration)
-                .speed(bar.speed)
-                .delay(bar.delay)
-        }
-        return .easeOut(duration: 0.18)
+    private func level(at index: Int) -> Double {
+        guard isPlaying, levels.indices.contains(index), levels[index].isFinite else { return 0.15 }
+        return min(1, max(0.15, levels[index]))
     }
 }
 
@@ -748,6 +708,18 @@ struct FavoritePriorityArtworkView: View {
     }
 }
 
+/// Preserve the complete source artwork, including portrait and landscape covers.
+struct MediaCoverArtwork: View {
+    let image: UIImage
+
+    var body: some View {
+        Image(uiImage: image)
+            .resizable()
+            .interpolation(.high)
+            .scaledToFit()
+    }
+}
+
 struct SongArtworkView: View {
     let path: String
     var size: CGFloat = 44
@@ -764,15 +736,9 @@ struct SongArtworkView: View {
     var body: some View {
         Group {
             if let img = customArtwork {
-                Image(uiImage: img)
-                    .interpolation(.none)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
+                MediaCoverArtwork(image: img)
             } else if let img = cachedArtwork {
-                Image(uiImage: img)
-                    .interpolation(.none)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
+                MediaCoverArtwork(image: img)
             } else {
                 Image(systemName: fallbackSystemImage)
                     .font(.system(size: max(14, size * 0.32), weight: .medium))
@@ -841,7 +807,7 @@ struct FolderArtworkView: View {
         Group {
             if let img = customArtwork {
                 Image(uiImage: img)
-                    .interpolation(.none)
+                    .interpolation(.high)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
             } else if visualOverride?.folderColorRgba != nil || childImages.isEmpty {
@@ -850,7 +816,7 @@ struct FolderArtworkView: View {
                     .foregroundStyle(folderTint)
             } else if childImages.count == 1 {
                 Image(uiImage: childImages[0])
-                    .interpolation(.none)
+                    .interpolation(.high)
                     .resizable()
                     .aspectRatio(contentMode: .fill)
             } else {
@@ -884,14 +850,14 @@ struct FolderArtworkView: View {
             HStack(spacing: 1) {
                 VStack(spacing: 1) {
                     Image(uiImage: images[0])
-                        .interpolation(.none)
+                        .interpolation(.high)
                         .resizable()
                         .aspectRatio(contentMode: .fill)
                         .frame(width: (geo.size.width - 1) / 2, height: images.count > 2 ? (geo.size.height - 1) / 2 : geo.size.height)
                         .clipped()
                     if images.count > 2 {
                         Image(uiImage: images[2])
-                            .interpolation(.none)
+                            .interpolation(.high)
                             .resizable()
                             .aspectRatio(contentMode: .fill)
                             .frame(width: (geo.size.width - 1) / 2, height: (geo.size.height - 1) / 2)
@@ -900,7 +866,7 @@ struct FolderArtworkView: View {
                 }
                 if images.count > 1 {
                     Image(uiImage: images[1])
-                        .interpolation(.none)
+                        .interpolation(.high)
                         .resizable()
                         .aspectRatio(contentMode: .fill)
                         .frame(width: (geo.size.width - 1) / 2)
