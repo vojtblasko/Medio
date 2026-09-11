@@ -37,7 +37,7 @@ Storage, interaction, and internet diagnostics can be enabled separately in Sett
 
 ## Build and run
 
-- **Deployment target:** iOS / iPadOS 15.5 or later.
+- **Deployment target:** iOS 15.5 or later.
 - **Development tools:** Xcode with an iOS 26 or newer SDK, and Swift 6.
 - **Project:** `Medio.xcodeproj`; scheme: `Medio`.
 
