@@ -2,7 +2,7 @@
 
 **Your files. A proper listening experience.**
 
-Medio is a local-first audio and video player for iPhone and iPad, built with SwiftUI and AVFoundation. Browse your own folders, discover albums and artists from file metadata, and listen with lyrics, favorites, and a persistent listening history.
+Medio is a local-first audio and video player for iPhone, built with SwiftUI and AVFoundation. Browse your own folders, discover albums and artists from file metadata, and listen with lyrics, favorites, and a persistent listening history.
 
 ## What you can do
 
