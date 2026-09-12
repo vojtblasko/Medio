@@ -1335,53 +1335,73 @@ private struct NowPlayingBackdrop: View {
     }
 
     private var backgroundGradient: LinearGradient {
-        LinearGradient(
+        let progress: CGFloat = scrollProgress
+        let pull: CGFloat = pullProgress
+        let start = UnitPoint(x: 0.02 + progress * 0.34 - pull * 0.08, y: 0)
+        let end = UnitPoint(x: 1 - progress * 0.2 + pull * 0.05, y: 1 - progress * 0.28)
+        return LinearGradient(
             colors: [first, second, Color.black.opacity(0.95)],
-            startPoint: UnitPoint(x: 0.02 + scrollProgress * 0.34 - pullProgress * 0.08, y: 0),
-            endPoint: UnitPoint(x: 1 - scrollProgress * 0.2 + pullProgress * 0.05, y: 1 - scrollProgress * 0.28)
+            startPoint: start,
+            endPoint: end
         )
     }
 
     private var colorWashGradient: some View {
-        LinearGradient(
-            colors: [third.opacity(0.58), first.opacity(0.18), .clear],
-            startPoint: UnitPoint(x: 0.1 + scrollProgress * 0.48, y: -0.08 + pullProgress * 0.08),
-            endPoint: UnitPoint(x: 0.94 - scrollProgress * 0.28, y: 1.04)
+        let progress: CGFloat = scrollProgress
+        let pull: CGFloat = pullProgress
+        let start = UnitPoint(x: 0.1 + progress * 0.48, y: -0.08 + pull * 0.08)
+        let end = UnitPoint(x: 0.94 - progress * 0.28, y: 1.04)
+        let opacity: Double = 0.34 + Double(progress) * 0.26
+        let offset: CGFloat = -scrollDistance * 0.18 + pullDistance * 0.08
+        let scale: CGFloat = 1 + progress * 0.08 + pull * 0.04
+        return LinearGradient(
+            colors: [third.opacity(0.58), first.opacity(0.18), Color.clear],
+            startPoint: start,
+            endPoint: end
         )
         .blendMode(.screen)
-        .opacity(0.34 + scrollProgress * 0.26)
-        .offset(y: -scrollDistance * 0.18 + pullDistance * 0.08)
-        .scaleEffect(1 + scrollProgress * 0.08 + pullProgress * 0.04)
+        .opacity(opacity)
+        .offset(y: offset)
+        .scaleEffect(scale)
     }
 
     private var radialHighlight: some View {
-        RadialGradient(
-            colors: [third.opacity(0.48 + scrollProgress * 0.18), .clear],
-            center: UnitPoint(x: 0.88 - scrollProgress * 0.32 + pullProgress * 0.08, y: 0.08 + scrollProgress * 0.44),
+        let progress: CGFloat = scrollProgress
+        let pull: CGFloat = pullProgress
+        let opacity: Double = 0.48 + Double(progress) * 0.18
+        let center = UnitPoint(x: 0.88 - progress * 0.32 + pull * 0.08, y: 0.08 + progress * 0.44)
+        let radius: CGFloat = 460 + progress * 140
+        return RadialGradient(
+            colors: [third.opacity(opacity), Color.clear],
+            center: center,
             startRadius: 24,
-            endRadius: 460 + scrollProgress * 140
+            endRadius: radius
         )
         .offset(x: -scrollDistance * 0.05, y: scrollOffset * 0.22)
     }
 
     private var shadowGradient: LinearGradient {
-        LinearGradient(
-            colors: [.black.opacity(0.08 + scrollProgress * 0.12), .black.opacity(0.5 + scrollProgress * 0.08)],
+        let progress: Double = Double(scrollProgress)
+        let topOpacity: Double = 0.08 + progress * 0.12
+        let bottomOpacity: Double = 0.5 + progress * 0.08
+        return LinearGradient(
+            colors: [Color.black.opacity(topOpacity), Color.black.opacity(bottomOpacity)],
             startPoint: .top,
             endPoint: .bottom
         )
     }
 
     var body: some View {
-        let progress = scrollProgress
-        ZStack {
+        let hue: Double = Double((scrollDistance - pullDistance) * 0.012)
+        let saturation: Double = 1 + Double(scrollProgress) * 0.16
+        return ZStack {
             backgroundGradient
             colorWashGradient
             radialHighlight
             shadowGradient
         }
-        .hueRotation(.degrees(Double((scrollDistance - pullDistance) * 0.012)))
-        .saturation(1 + progress * 0.16)
+        .hueRotation(.degrees(hue))
+        .saturation(saturation)
     }
 }
 
