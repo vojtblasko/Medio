@@ -41,6 +41,7 @@ final class SystemUIPresenter: ObservableObject {
     private var presentedSheet: SystemSheet?
     private var pendingResult: Swift.Result<SystemSheet.Result, Error>?
     private var hasDismissed = false
+    private var isLoadingSelection = false
     private var presentationID = UUID()
 
     fileprivate func present(_ sheet: SystemSheet) async throws -> SystemSheet.Result {
@@ -54,8 +55,15 @@ final class SystemUIPresenter: ObservableObject {
         }
     }
 
+    // PHPicker image providers may finish well after the sheet disappears.
+    func beginLoadingSelection() {
+        guard presentedSheet != nil, pendingResult == nil else { return }
+        isLoadingSelection = true
+    }
+
     func complete(_ result: Swift.Result<SystemSheet.Result, Error>) {
         guard presentedSheet != nil, pendingResult == nil else { return }
+        isLoadingSelection = false
         pendingResult = result
         sheet = nil
         if hasDismissed { finishDismissal() }
@@ -82,7 +90,7 @@ final class SystemUIPresenter: ObservableObject {
     }
 
     private func finishDismissal() {
-        guard hasDismissed, let presented = presentedSheet else { return }
+        guard hasDismissed, !isLoadingSelection, let presented = presentedSheet else { return }
         let result = pendingResult ?? .failure(SystemUIError.cancelled)
         presentedSheet = nil
         pendingResult = nil
@@ -175,7 +183,7 @@ struct SystemSheetHost: View {
             ) { sheet in
                 switch sheet {
                 case .photoPicker:
-                    PhotoPickerView { result in
+                    PhotoPickerView(onBeginLoading: presenter.beginLoadingSelection) { result in
                         presenter.complete(result.map(SystemSheetResult.image))
                     }
                 case .documentPicker(let types, let multiple, _):
@@ -189,6 +197,7 @@ struct SystemSheetHost: View {
 
 private struct PhotoPickerView: UIViewControllerRepresentable {
     typealias Completion = @MainActor @Sendable (Result<Data, Error>) -> Void
+    let onBeginLoading: @MainActor @Sendable () -> Void
     let onComplete: Completion
 
     func makeUIViewController(context: Context) -> PHPickerViewController {
@@ -202,12 +211,14 @@ private struct PhotoPickerView: UIViewControllerRepresentable {
 
     func updateUIViewController(_ uiViewController: PHPickerViewController, context: Context) {}
 
-    func makeCoordinator() -> Coordinator { Coordinator(onComplete: onComplete) }
+    func makeCoordinator() -> Coordinator { Coordinator(onBeginLoading: onBeginLoading, onComplete: onComplete) }
 
     final class Coordinator: NSObject, PHPickerViewControllerDelegate {
+        let onBeginLoading: @MainActor @Sendable () -> Void
         let onComplete: Completion
 
-        init(onComplete: @escaping Completion) {
+        init(onBeginLoading: @escaping @MainActor @Sendable () -> Void, onComplete: @escaping Completion) {
+            self.onBeginLoading = onBeginLoading
             self.onComplete = onComplete
         }
 
@@ -221,6 +232,7 @@ private struct PhotoPickerView: UIViewControllerRepresentable {
                 onComplete(.failure(SystemUIError.invalidSelection))
                 return
             }
+            onBeginLoading()
             let complete = onComplete
             provider.loadObject(ofClass: UIImage.self) { object, error in
                 let result: Result<Data, Error>

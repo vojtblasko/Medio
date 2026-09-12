@@ -2961,6 +2961,20 @@ final class SystemUIPresenterTests: XCTestCase {
         }
     }
 
+    func testPhotoLoadingSurvivesDismissalUntilProviderCompletes() async throws {
+        let presenter = SystemUIPresenter()
+        let service = MedioPhotoPickingService(presenter: presenter)
+        let request = Task { try await service.pickImage() }
+        await Task.yield()
+        presenter.beginLoadingSelection()
+        presenter.didDismiss()
+        // Let the queued cancellation fallback run while a photo is still loading.
+        try await Task.sleep(nanoseconds: 50_000_000)
+        presenter.complete(.success(.image(Data([4, 5, 6]))))
+        let result = try await request.value
+        XCTAssertEqual(result, Data([4, 5, 6]))
+    }
+
     func testDocumentSelectionDeliveredJustAfterDismissalIsNotCancelled() async throws {
         let presenter = SystemUIPresenter()
         let service = MedioDocumentPickingService(presenter: presenter)
