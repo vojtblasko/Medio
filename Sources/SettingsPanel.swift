@@ -422,8 +422,7 @@ struct SettingsPanel: View {
     }
 
     private var internetDisableWarningMessage: String {
-        let imageText = "\(internetDisableArtistImageCount) downloaded artist profile image\(internetDisableArtistImageCount == 1 ? "" : "s")"
-        return "Medio will stop MusicBrainz and Wikimedia artist-picture lookups. \(imageText.capitalized) will be deleted from this device, and artist pages will fall back to the default person icon until you enable internet access again."
+        return String(localized: "Medio will stop MusicBrainz and Wikimedia artist-picture lookups. Downloaded artist pictures to delete: \(internetDisableArtistImageCount). Artist pages will use the default person icon until you enable internet access again.")
     }
 
     private func requestDisableInternetAccess() {
@@ -587,11 +586,11 @@ struct SettingsPanel: View {
                 await refreshCacheUsage()
 
                 isMakingLivied = false
-                liviedStatus = "Snapshot refreshed: \(lastSnapshotText). Organized \(organizedCount) lyrics file\(organizedCount == 1 ? "" : "s") and queued cover art retry for \(songIDs.count) song\(songIDs.count == 1 ? "" : "s")."
+                liviedStatus = String(localized: "Snapshot refreshed: \(lastSnapshotText). Lyrics files organized: \(organizedCount). Songs queued for cover art retry: \(songIDs.count).")
                 showLiviedAlert = true
             } catch {
                 isMakingLivied = false
-                liviedStatus = "Make Me Livied It failed: \(error.localizedDescription)"
+                liviedStatus = String(localized: "Make Me Livied It failed: \(error.localizedDescription)")
                 showLiviedAlert = true
             }
         }
@@ -631,13 +630,13 @@ struct SettingsPanel: View {
                 let directory = try await exporter.export(libraryStore: container.libraryStore)
                 await MainActor.run {
                     isExportingMedioReCapped = false
-                    medioReCappedExportStatus = "Saved to \(directory.path.appRelativeDisplayPath)"
+                    medioReCappedExportStatus = String(localized: "Saved to \(directory.path.appRelativeDisplayPath)")
                     showMedioReCappedAlert = true
                 }
             } catch {
                 await MainActor.run {
                     isExportingMedioReCapped = false
-                    medioReCappedExportStatus = "Export failed: \(error.localizedDescription)"
+                    medioReCappedExportStatus = String(localized: "Export failed: \(error.localizedDescription)")
                     showMedioReCappedAlert = true
                 }
             }
@@ -863,7 +862,7 @@ struct LyricsSettingsPanel: View {
             } catch is CancellationError {
                 missingLyricsStatus = String(localized: "Scan cancelled.")
             } catch {
-                missingLyricsStatus = "Scan failed: \(error.localizedDescription)"
+                missingLyricsStatus = String(localized: "Scan failed: \(error.localizedDescription)")
             }
             isScanningMissingLyrics = false
             missingLyricsProgress = nil
@@ -900,9 +899,9 @@ struct LyricsSettingsPanel: View {
                     organizingProgress = processed
                     organizingTotal = total
                 }
-                organizingStatus = "Successfully organized \(result) lyrics file\(result == 1 ? "" : "s")."
+                organizingStatus = String(localized: "Successfully organized \(result) lyrics files.")
             } catch {
-                organizingStatus = "Error: \(error.localizedDescription)"
+                organizingStatus = String(localized: "Error: \(error.localizedDescription)")
             }
             isOrganizingLyrics = false
             showOrganizingAlert = true

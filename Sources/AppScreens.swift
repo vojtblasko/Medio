@@ -1051,7 +1051,7 @@ struct HomeScreen: View {
                 isSelecting = false
             }
             if let failure = result.failures.first {
-                moveStatusMessage = "Some items were not moved: \(failure.message)"
+                moveStatusMessage = String(localized: "Some items were not moved: \(failure.message)")
                 showMoveStatus = true
             }
         } catch {
@@ -1795,9 +1795,9 @@ struct MultiItemDragPreview: View {
     }
 
     private var title: String {
-        guard let first = paths.first else { return "Item" }
+        guard let first = paths.first else { return String(localized: "Item") }
         let name = URL(fileURLWithPath: first).lastPathComponent
-        return name.isEmpty ? "Item" : name
+        return name.isEmpty ? String(localized: "Item") : name
     }
 
     private var iconName: String {

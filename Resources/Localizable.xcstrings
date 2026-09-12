@@ -2997,6 +2997,34 @@
         }
       }
     },
+    "Documents directory not found.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Documents directory not found."
+          }
+        },
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Složka Dokumenty nebyla nalezena."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Der Ordner „Dokumente“ wurde nicht gefunden."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Dossier Documents introuvable."
+          }
+        }
+      }
+    },
     "Done": {
       "localizations": {
         "en": {
@@ -3249,6 +3277,34 @@
         }
       }
     },
+    "Error: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Error: %@"
+          }
+        },
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Chyba: %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fehler: %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Erreur : %@"
+          }
+        }
+      }
+    },
     "Everything Medio collects for debugging is listed here and visible when you open each category. Nothing is shared automatically. You choose which categories to include when reporting a bug.": {
       "localizations": {
         "en": {
@@ -3305,6 +3361,34 @@
         }
       }
     },
+    "Export failed: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Export failed: %@"
+          }
+        },
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Export selhal: %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Export fehlgeschlagen: %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Échec de l’exportation : %@"
+          }
+        }
+      }
+    },
     "Exporting Medio ReCapped text files...": {
       "localizations": {
         "en": {
@@ -3329,6 +3413,62 @@
           "stringUnit": {
             "state": "translated",
             "value": "Exportation des fichiers texte Medio ReCapped…"
+          }
+        }
+      }
+    },
+    "Failed to assign lyrics: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Failed to assign lyrics: %@"
+          }
+        },
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přiřazení textu selhalo: %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Liedtext konnte nicht zugeordnet werden: %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible d’associer les paroles : %@"
+          }
+        }
+      }
+    },
+    "Failed to move lyrics: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Failed to move lyrics: %@"
+          }
+        },
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Přesunutí textu selhalo: %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Liedtext konnte nicht verschoben werden: %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de déplacer les paroles : %@"
           }
         }
       }
@@ -5209,6 +5349,34 @@
         }
       }
     },
+    "Make Me Livied It failed: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Make Me Livied It failed: %@"
+          }
+        },
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Funkce Make Me Livied It selhala: %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Make Me Livied It fehlgeschlagen: %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Échec de Make Me Livied It : %@"
+          }
+        }
+      }
+    },
     "Make Priority Image": {
       "localizations": {
         "en": {
@@ -5317,6 +5485,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "Medio ReCapped n’envoie vos données à aucun serveur. Tout est stocké localement sur cet appareil."
+          }
+        }
+      }
+    },
+    "Medio will stop MusicBrainz and Wikimedia artist-picture lookups. Downloaded artist pictures to delete: %lld. Artist pages will use the default person icon until you enable internet access again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Medio will stop MusicBrainz and Wikimedia artist-picture lookups. Downloaded artist pictures to delete: %lld. Artist pages will use the default person icon until you enable internet access again."
+          }
+        },
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Medio přestane vyhledávat obrázky interpretů ve službách MusicBrainz a Wikimedia. Počet stažených obrázků interpretů ke smazání: %lld. Stránky interpretů budou používat výchozí ikonu osoby, dokud znovu nepovolíte přístup k internetu."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Medio beendet die Suche nach Interpretenbildern bei MusicBrainz und Wikimedia. Zu löschende heruntergeladene Bilder: %lld. Auf den Interpretenseiten wird das Standardsymbol angezeigt, bis du den Internetzugriff wieder aktivierst."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Medio arrêtera les recherches d’images d’artistes sur MusicBrainz et Wikimedia. Images téléchargées à supprimer : %lld. Les pages d’artistes utiliseront l’icône par défaut jusqu’à la réactivation de l’accès à Internet."
           }
         }
       }
@@ -7785,6 +7981,34 @@
         }
       }
     },
+    "Saved to %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Saved to %@"
+          }
+        },
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uloženo do %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gespeichert unter %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Enregistré dans %@"
+          }
+        }
+      }
+    },
     "Scan cancelled.": {
       "localizations": {
         "en": {
@@ -7809,6 +8033,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "Analyse annulée."
+          }
+        }
+      }
+    },
+    "Scan failed: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scan failed: %@"
+          }
+        },
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prohledávání selhalo: %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Suche fehlgeschlagen: %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Échec de l’analyse : %@"
           }
         }
       }
@@ -8681,6 +8933,34 @@
         }
       }
     },
+    "Snapshot refreshed: %@. Lyrics files organized: %lld. Songs queued for cover art retry: %lld.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Snapshot refreshed: %@. Lyrics files organized: %lld. Songs queued for cover art retry: %lld."
+          }
+        },
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Snímek aktualizován: %@. Uspořádané soubory textů: %lld. Skladby zařazené k opětovnému načtení obalu: %lld."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Momentaufnahme aktualisiert: %@. Geordnete Liedtextdateien: %lld. Titel zum erneuten Laden des Covers vorgemerkt: %lld."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Instantané actualisé : %@. Fichiers de paroles classés : %lld. Morceaux en attente d’une nouvelle recherche de pochette : %lld."
+          }
+        }
+      }
+    },
     "Some ReCapped data could not be deleted. Try again.": {
       "localizations": {
         "en": {
@@ -8733,6 +9013,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "Certains fichiers du cache n’ont pas pu être supprimés. Réessayez."
+          }
+        }
+      }
+    },
+    "Some items were not moved: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Some items were not moved: %@"
+          }
+        },
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Některé položky nebyly přesunuty: %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Einige Objekte wurden nicht verschoben: %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Certains éléments n’ont pas été déplacés : %@"
           }
         }
       }
@@ -9067,6 +9375,88 @@
           "stringUnit": {
             "state": "translated",
             "value": "Medio a analysé le stockage, mais n’a trouvé aucun fichier dans Sur mon iPhone > Medio."
+          }
+        }
+      }
+    },
+    "Successfully organized %lld lyrics files.": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Successfully organized %lld lyrics file."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Successfully organized %lld lyrics files."
+                }
+              }
+            }
+          }
+        },
+        "cs": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Úspěšně uspořádán %lld soubor textu."
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Úspěšně uspořádány %lld soubory textů."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Úspěšně uspořádáno %lld souborů textů."
+                }
+              }
+            }
+          }
+        },
+        "de": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Liedtextdatei erfolgreich geordnet."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld Liedtextdateien erfolgreich geordnet."
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld fichier de paroles classé."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld fichiers de paroles classés."
+                }
+              }
+            }
           }
         }
       }

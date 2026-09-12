@@ -1562,7 +1562,7 @@ struct FolderPanel: View {
                 router.resetSheetStack()
             }
             if let failure = result.failures.first {
-                moveStatusMessage = "Some items were not moved: \(failure.message)"
+                moveStatusMessage = String(localized: "Some items were not moved: \(failure.message)")
                 showMoveStatus = true
             }
         } catch {
@@ -1827,7 +1827,7 @@ struct MoveItemPanel: View {
             }
             await container.libraryStore.refresh(scanUseCase: ScanLibraryUseCase(dataSource: container.mediaLibraryRepository))
             if let failure = result.failures.first {
-                errorMessage = "Some items were not moved: \(failure.message)"
+                errorMessage = String(localized: "Some items were not moved: \(failure.message)")
                 return
             }
             router.dismissSheet()
@@ -1871,7 +1871,7 @@ struct CreateFolderScreen: View {
         } else if let docs = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first {
             base = docs
         } else {
-            vm.errorMessage = "Documents directory not found."
+            vm.errorMessage = String(localized: "Documents directory not found.")
             return
         }
         do {

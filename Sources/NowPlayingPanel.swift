@@ -714,7 +714,7 @@ struct NowPlayingPanel: View {
             }
         } catch {
             await MainActor.run {
-                lyricDropInfoMessage = "Failed to move lyrics: \(error.localizedDescription)"
+                lyricDropInfoMessage = String(localized: "Failed to move lyrics: \(error.localizedDescription)")
                 showLyricDropInfo = true
                 pendingMovedLyricURL = nil
                 pendingLyricTargetSongID = nil
@@ -746,7 +746,7 @@ struct NowPlayingPanel: View {
             }
         } catch {
             await MainActor.run {
-                lyricDropInfoMessage = "Failed to assign lyrics: \(error.localizedDescription)"
+                lyricDropInfoMessage = String(localized: "Failed to assign lyrics: \(error.localizedDescription)")
                 showLyricDropInfo = true
                 pendingMovedLyricURL = nil
                 pendingLyricTargetSongID = nil
