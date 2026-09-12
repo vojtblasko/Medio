@@ -130,6 +130,68 @@ final class AudioPlaybackService: NSObject, PlaybackService, PlaybackServicePubl
         await operation.value
     }
 
+    /// Edits the visible queue without seeking or replacing the retained current player item.
+    func updateQueue(_ items: [MediaItem], currentIndex index: Int, preservingCurrentItem: Bool) async {
+        let operation = enqueueOperation { @MainActor in
+            let start = items.isEmpty ? nil : min(max(index, 0), items.count - 1)
+            let activeItem = self.player.currentItem
+            let oldIndex = self.currentIndex.flatMap { self.queue.indices.contains($0) ? $0 : nil }
+            let sameTrack = start.flatMap { newIndex in oldIndex.map { self.queue[$0].id == items[newIndex].id } } ?? false
+            let retainsCurrent = preservingCurrentItem && sameTrack && activeItem != nil
+            let shouldPlay = self.requestedPlaying ?? self.isPlaying
+
+            // Keep the displayed order, including duplicate occurrences, during manual edits.
+            self.applyQueueEdit(items, retainedCurrentIndex: preservingCurrentItem && sameTrack ? start : nil)
+            self.queue = items
+            self.currentIndex = start
+            self.playerItemIndices.removeAll()
+            if retainsCurrent, let activeItem, let start {
+                for item in self.player.items() where item !== activeItem { self.player.remove(item) }
+                self.playerItemIndices[ObjectIdentifier(activeItem)] = start
+            } else {
+                self.player.removeAllItems()
+                self.positionMs = 0
+                self.durationMs = nil
+            }
+            if let start {
+                self.fillPlayerWindow(startingAt: start)
+                if shouldPlay { self.player.play() }
+            } else {
+                self.player.pause()
+            }
+            self.requestedPlaying = shouldPlay && start != nil
+            self.isPlaying = shouldPlay && start != nil
+            self.publishUpdate()
+        }
+        await operation.value
+    }
+
+    private func applyQueueEdit(_ items: [MediaItem], retainedCurrentIndex: Int?) {
+        guard shuffleEnabled else {
+            originalQueue = items
+            order = Array(items.indices)
+            return
+        }
+        // Retain the original order for Shuffle Off, reserving the active duplicate occurrence.
+        let activeOriginal = currentIndex.flatMap { order.indices.contains($0) ? order[$0] : nil }
+        var available: [MediaItem: [Int]] = [:]
+        for index in originalQueue.indices.reversed() {
+            if retainedCurrentIndex != nil && index == activeOriginal { continue }
+            available[originalQueue[index], default: []].append(index)
+        }
+        var originals = originalQueue
+        let identities = items.enumerated().map { index, item -> Int in
+            if index == retainedCurrentIndex, let activeOriginal { return activeOriginal }
+            if let existing = available[item]?.popLast() { return existing }
+            originals.append(item)
+            return originals.count - 1
+        }
+        let retained = identities.sorted()
+        let positions = Dictionary(uniqueKeysWithValues: retained.enumerated().map { ($0.element, $0.offset) })
+        originalQueue = retained.map { originals[$0] }
+        order = identities.compactMap { positions[$0] }
+    }
+
     func play() async {
         activateSessionIfNeeded()
         let operation = enqueueOperation { @MainActor in

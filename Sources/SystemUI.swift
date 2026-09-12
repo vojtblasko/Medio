@@ -40,11 +40,15 @@ final class SystemUIPresenter: ObservableObject {
     @Published var sheet: SystemSheet? = nil
     private var presentedSheet: SystemSheet?
     private var pendingResult: Swift.Result<SystemSheet.Result, Error>?
+    private var hasDismissed = false
+    private var presentationID = UUID()
 
     fileprivate func present(_ sheet: SystemSheet) async throws -> SystemSheet.Result {
         guard presentedSheet == nil else { throw SystemUIError.presentationUnavailable }
         return try await withCheckedThrowingContinuation { cont in
             let presented = sheet.withContinuation(cont)
+            presentationID = UUID()
+            hasDismissed = false
             presentedSheet = presented
             self.sheet = presented
         }
@@ -54,6 +58,7 @@ final class SystemUIPresenter: ObservableObject {
         guard presentedSheet != nil, pendingResult == nil else { return }
         pendingResult = result
         sheet = nil
+        if hasDismissed { finishDismissal() }
     }
 
     func dismiss() {
@@ -61,12 +66,28 @@ final class SystemUIPresenter: ObservableObject {
     }
 
     func didDismiss() {
-        guard let presented = presentedSheet else { return }
+        guard presentedSheet != nil else { return }
+        hasDismissed = true
+        if pendingResult != nil {
+            finishDismissal()
+        } else {
+            // UIDocumentPicker can dismiss its sheet before delivering didPickDocumentsAt
+            // in the same event. Give that callback a chance before treating this as Cancel.
+            let dismissedID = presentationID
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.presentationID == dismissedID else { return }
+                self.finishDismissal()
+            }
+        }
+    }
+
+    private func finishDismissal() {
+        guard hasDismissed, let presented = presentedSheet else { return }
         let result = pendingResult ?? .failure(SystemUIError.cancelled)
         presentedSheet = nil
         pendingResult = nil
+        hasDismissed = false
         sheet = nil
-        // Resume only after dismissal so callers can safely present the crop editor next.
         switch presented {
         case .photoPicker(let continuation), .documentPicker(_, _, let continuation):
             continuation?.resume(with: result)

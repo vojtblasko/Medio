@@ -19,6 +19,7 @@ enum AppPerformance {
 }
 
 enum AppRuntime {
+    @MainActor private static var didPrepareUITestState = false
     static var isUITesting: Bool {
         ProcessInfo.processInfo.arguments.contains("-medioUITestMode")
     }
@@ -29,7 +30,8 @@ enum AppRuntime {
 
     @MainActor
     static func prepareUITestStateIfNeeded() {
-        guard isUITesting else { return }
+        guard isUITesting, !didPrepareUITestState else { return }
+        didPrepareUITestState = true
         UIView.setAnimationsEnabled(false)
         let fileManager = FileManager.default
         if shouldResetUITestState {
@@ -60,6 +62,21 @@ enum AppRuntime {
                 }
             }
         }
+        if ProcessInfo.processInfo.arguments.contains("-medioUITestPriorityImage") {
+            let size = CGSize(width: 240, height: 480)
+            let image = UIGraphicsImageRenderer(size: size).image { context in
+                UIColor.systemBlue.setFill()
+                context.fill(CGRect(origin: .zero, size: size))
+                UIColor.systemYellow.setFill()
+                context.fill(CGRect(x: 70, y: 0, width: 100, height: 480))
+            }
+            let url = documents.appendingPathComponent("Priority Test Image.png")
+            try? image.pngData()?.write(to: url)
+            UserDefaults.standard.set(4, forKey: "medio.settings.priorityFoldersCount")
+            UserDefaults.standard.set(["0": url.path], forKey: "medio.settings.prioritySlotArtworkPaths")
+            UserDefaults.standard.set(["0"], forKey: "medio.settings.prioritySlotImageOnlyKeys")
+        }
+
     }
 }
 

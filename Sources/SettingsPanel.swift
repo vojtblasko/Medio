@@ -124,6 +124,14 @@ final class DiagnosticsCenter: ObservableObject {
 struct SettingsPanel: View {
     @ObservedObject var vm: SettingsViewModel
     @ObservedObject var container: AppContainer
+    @ObservedObject private var settingsStore: SettingsStore
+    @ObservedObject private var onlineAccess = OnlineAccessStore.shared
+
+    init(vm: SettingsViewModel, container: AppContainer) {
+        self.vm = vm
+        self.container = container
+        self.settingsStore = container.settingsStore
+    }
     @EnvironmentObject var batterySaver: BatterySaverService
     @EnvironmentObject private var router: AppRouter
 
@@ -134,7 +142,7 @@ struct SettingsPanel: View {
     @State private var persistenceErrorMessage = ""
     @State private var showPersistenceError = false
     @State private var showMedioReCappedDisableWarning = false
-    @State private var cacheUsageText = "Calculating..."
+    @State private var cacheUsageText = String(localized: "Calculating...")
     @State private var showInternetDisableWarning = false
     @State private var internetDisableArtistImageCount = 0
     @State private var isMakingLivied = false
@@ -145,6 +153,14 @@ struct SettingsPanel: View {
     var body: some View {
         Group {
             List {
+                Section("Language") {
+                    Button("App Language") {
+                        if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
+                    }
+                    Text("Uses your device language by default. English, Czech, German, and French are available in iOS app settings.")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+
                 Section("Playback") {
                     Toggle("Battery Saver Mode (Mimic)", isOn: $batterySaver.manualSaverEnabled)
                         .onChange(of: batterySaver.manualSaverEnabled) { _ in
@@ -157,29 +173,30 @@ struct SettingsPanel: View {
                     }
                 }
 
+                PlaybackIndicatorSettingsSection()
+
+                AudioSharingSettingsSection(sharing: container.audioSharing)
+
                 Section("Online Access") {
                     Toggle("App Can Connect to the Internet", isOn: internetAccessBinding)
                         .accessibilityIdentifier("settings_internet_access")
 
-                    VStack(alignment: .leading, spacing: 10) {
-                        Label("Programming rule", systemImage: "lock.shield")
-                            .font(.subheadline.weight(.semibold))
-                        Text("If this switch is off, every feature that connects to the internet must stay disabled. New online features must check this setting before starting any internet request.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-
-                        Divider()
-
-                        Text("What Medio does online")
-                            .font(.subheadline.weight(.semibold))
-                        Text("When the switch is on, artist pages can search MusicBrainz artist links and Wikimedia projects, read Commons image license metadata, and download an artist picture only when the file uses a free license.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Text("Medio does not upload your songs, file paths, lyrics, favorites, queue, listening history, or settings for this artist-picture lookup.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                    ForEach(OnlineFeature.allCases) { feature in
+                        Toggle(isOn: Binding(get: { onlineAccess.isEnabled(feature) }, set: { onlineAccess.setEnabled($0, for: feature) })) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(feature.title)
+                                Text("Transferred: \(ByteCountFormatter.string(fromByteCount: onlineAccess.transferredBytes[feature.rawValue, default: 0], countStyle: .file))")
+                                    .font(.caption).foregroundStyle(.secondary)
+                            }
+                        }
+                        .disabled(!vm.appCanConnectToInternet)
+                        .accessibilityIdentifier("settings_online_\(feature.rawValue)")
                     }
-                    .padding(.vertical, 4)
+                    Text("Usage since \(onlineAccess.trackingSince.formatted(date: .abbreviated, time: .omitted)). Includes sent and received HTTP data; excludes cached responses and connection overhead.")
+                        .font(.caption).foregroundStyle(.secondary)
+                    Text(String(localized: "These internet functions fetch artist pictures. Local audio sharing has its own switch and usage counter above. GitHub reports open in your browser, whose usage is not counted here."))
+                        .font(.caption).foregroundStyle(.secondary)
+                    Button("Reset Internet Usage") { onlineAccess.resetUsage() }
                 }
 
                 Section("Library") {
@@ -199,6 +216,12 @@ struct SettingsPanel: View {
                         }
                     }
 
+                    Toggle("Show Favorites in Home", isOn: $settingsStore.favoritesHomeFolderEnabled)
+                        .accessibilityIdentifier("settings_home_favorites")
+                    Toggle("Use Favorites as Priority 1", isOn: $settingsStore.favoritesPriorityFolderEnabled)
+                        .accessibilityIdentifier("settings_priority_favorites")
+                    Text("When pinned as Priority 1, Favorites appears there instead of in the folder list. Your favorite songs are kept when either switch is off.")
+                        .font(.caption).foregroundStyle(.secondary)
                     if vm.priorityFoldersCount == 0 {
                         Text(container.settingsStore.favoritesHomeFolderEnabled
                             ? "Favorites appears with normal folders after you favorite a song."
@@ -206,14 +229,14 @@ struct SettingsPanel: View {
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     } else {
-                        if container.settingsStore.favoritesHomeFolderEnabled {
+                        if container.settingsStore.favoritesPriorityFolderEnabled {
                             Menu {
                                 Button("About Favorites", systemImage: "info.circle") {
                                     router.present(.favoritesAbout)
                                 }
                             } label: {
                                 priorityFolderLabel(
-                                    title: "Favorites",
+                                    title: String(localized: "Favorites"),
                                     systemImage: "star.fill",
                                     priorityNumber: 1
                                 )
@@ -229,22 +252,6 @@ struct SettingsPanel: View {
                         ForEach(0..<max(0, vm.priorityFoldersCount - 1), id: \.self) { slot in
                             priorityFolderMenu(slot: slot, priorityNumber: slot + 2)
                         }
-                    }
-
-                    if container.settingsStore.favoritesHomeFolderEnabled {
-                        Button("Remove Favorites Home Folder", role: .destructive) {
-                            container.settingsStore.favoritesHomeFolderEnabled = false
-                        }
-                        Text("Keeps your favorite songs, hides Favorites from Home, and unlocks Priority 1 for a normal folder or image.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    } else {
-                        Button("Restore Favorites Home Folder") {
-                            container.settingsStore.favoritesHomeFolderEnabled = true
-                        }
-                        Text("Restores Favorites to Priority 1 and to the normal Home folder list when Priority Folders is 0.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
                     }
                 }
 
@@ -306,7 +313,7 @@ struct SettingsPanel: View {
                             showCacheAlert = true
                         } catch {
                             AppLog.persistence.error("Caches could not be cleared: \(error.localizedDescription, privacy: .public)")
-                            persistenceErrorMessage = "Some cache files could not be cleared. Try again."
+                            persistenceErrorMessage = String(localized: "Some cache files could not be cleared. Try again.")
                             showPersistenceError = true
                         }
                     }
@@ -455,7 +462,7 @@ struct SettingsPanel: View {
                 try deleteMedioReCappedReports()
             } catch {
                 AppLog.persistence.error("ReCapped data could not be deleted: \(error.localizedDescription, privacy: .public)")
-                persistenceErrorMessage = "Some ReCapped data could not be deleted. Try again."
+                persistenceErrorMessage = String(localized: "Some ReCapped data could not be deleted. Try again.")
                 showPersistenceError = true
             }
         }
@@ -478,7 +485,7 @@ struct SettingsPanel: View {
 
     private func priorityFolderName(at slot: Int) -> String {
         guard let path = container.settingsStore.priorityFolderPath(at: slot) else {
-            return "Choose Folder"
+            return String(localized: "Choose Folder")
         }
         if let folder = container.libraryStore.allItems.first(where: { $0.id == path }) {
             return folder.displayName
@@ -551,7 +558,7 @@ struct SettingsPanel: View {
     private func makeMeLiviedIt() {
         guard !isMakingLivied else { return }
         isMakingLivied = true
-        liviedStatus = "Refreshing library snapshot..."
+        liviedStatus = String(localized: "Refreshing library snapshot...")
 
         Task {
             let scanUseCase = ScanLibraryUseCase(dataSource: container.mediaLibraryRepository)
@@ -559,17 +566,17 @@ struct SettingsPanel: View {
                 ArtworkCache.shared.clear()
                 await container.libraryStore.refresh(scanUseCase: scanUseCase)
 
-                liviedStatus = "Organizing loose lyrics files..."
+                liviedStatus = String(localized: "Organizing loose lyrics files...")
                 let organizedCount = try await organizeLyricsFiles { processed, total in
                     if total == 0 {
-                        liviedStatus = "No loose lyrics files found."
+                        liviedStatus = String(localized: "No loose lyrics files found.")
                     } else {
                         liviedStatus = "Organizing loose lyrics files \(processed)/\(total)..."
                     }
                 }
 
                 if organizedCount > 0 {
-                    liviedStatus = "Refreshing snapshot after lyrics organization..."
+                    liviedStatus = String(localized: "Refreshing snapshot after lyrics organization...")
                     await container.libraryStore.refresh(scanUseCase: scanUseCase)
                 }
 
@@ -617,7 +624,7 @@ struct SettingsPanel: View {
 
     private func exportMedioReCappedReports() {
         isExportingMedioReCapped = true
-        medioReCappedExportStatus = "Exporting Medio ReCapped text files..."
+        medioReCappedExportStatus = String(localized: "Exporting Medio ReCapped text files...")
         Task {
             do {
                 let exporter = MedioReCappedReportExporter(historyRepository: container.listeningHistoryRepository)
@@ -648,7 +655,7 @@ struct SettingsPanel: View {
 
     private var lastSnapshotText: String {
         guard let date = container.libraryStore.lastStorageScanSummary?.refreshedAt else {
-            return "No snapshot yet"
+            return String(localized: "No snapshot yet")
         }
         return date.formatted(date: .abbreviated, time: .shortened)
     }
@@ -781,7 +788,7 @@ struct LyricsSettingsPanel: View {
         .onChange(of: speechlessMusicPolicy) { _ in
             missingLyricsReport = nil
             missingLyricsProgress = nil
-            missingLyricsStatus = "Choose List Files Without Lyrics to apply this option."
+            missingLyricsStatus = String(localized: "Choose List Files Without Lyrics to apply this option.")
         }
         .alert("Lyrics Organization Complete", isPresented: $showOrganizingAlert) {
             Button("OK") { }
@@ -839,7 +846,7 @@ struct LyricsSettingsPanel: View {
         let selectedPolicy = speechlessMusicPolicy
         isScanningMissingLyrics = true
         missingLyricsReport = nil
-        missingLyricsStatus = songs.isEmpty ? "The library has no playable files." : "Preparing scan…"
+        missingLyricsStatus = songs.isEmpty ? String(localized: "The library has no playable files.") : String(localized: "Preparing scan…")
         missingLyricsProgress = nil
 
         Task {
@@ -854,7 +861,7 @@ struct LyricsSettingsPanel: View {
                 missingLyricsReport = report
                 missingLyricsStatus = missingLyricsSummary(report)
             } catch is CancellationError {
-                missingLyricsStatus = "Scan cancelled."
+                missingLyricsStatus = String(localized: "Scan cancelled.")
             } catch {
                 missingLyricsStatus = "Scan failed: \(error.localizedDescription)"
             }
@@ -880,7 +887,7 @@ struct LyricsSettingsPanel: View {
     private func organizeLyrics() {
         guard !isOrganizingLyrics else { return }
         isOrganizingLyrics = true
-        organizingStatus = "Scanning for lyrics files…"
+        organizingStatus = String(localized: "Scanning for lyrics files…")
         organizingProgress = 0
         organizingTotal = 0
 
@@ -958,7 +965,7 @@ struct CrashReportManagerPanel: View {
 
                         if !diagnostics.storageReport.isEmpty {
                             Button("Copy Storage Diagnostics", systemImage: "doc.on.doc") {
-                                copy(diagnostics.storageReport, category: "Storage diagnostics")
+                                copy(diagnostics.storageReport, category: String(localized: "Storage diagnostics"))
                             }
                             Button("Clear Storage Diagnostics", systemImage: "trash", role: .destructive) {
                                 diagnostics.clearStorageReport()
@@ -966,7 +973,7 @@ struct CrashReportManagerPanel: View {
                         }
                     } label: {
                         diagnosticLabel(
-                            title: "Storage Diagnostics",
+                            title: String(localized: "Storage Diagnostics"),
                             icon: "externaldrive.badge.questionmark",
                             isEnabled: diagnostics.storageEnabled,
                             count: diagnostics.storageReport.isEmpty ? 0 : diagnostics.storageReport.components(separatedBy: "\n").count
@@ -989,7 +996,7 @@ struct CrashReportManagerPanel: View {
 
                         if !diagnostics.internetEntries.isEmpty {
                             Button("Copy Internet Diagnostics", systemImage: "doc.on.doc") {
-                                copy(formatted(diagnostics.internetEntries), category: "Internet diagnostics")
+                                copy(formatted(diagnostics.internetEntries), category: String(localized: "Internet diagnostics"))
                             }
                             Button("Clear Internet Diagnostics", systemImage: "trash", role: .destructive) {
                                 diagnostics.clearInternetEntries()
@@ -997,7 +1004,7 @@ struct CrashReportManagerPanel: View {
                         }
                     } label: {
                         diagnosticLabel(
-                            title: "Internet Diagnostics",
+                            title: String(localized: "Internet Diagnostics"),
                             icon: "network",
                             isEnabled: diagnostics.internetEnabled,
                             count: diagnostics.internetEntries.count
@@ -1020,7 +1027,7 @@ struct CrashReportManagerPanel: View {
 
                         if !diagnostics.interactionEntries.isEmpty {
                             Button("Copy Click-Through Diagnostics", systemImage: "doc.on.doc") {
-                                copy(formatted(diagnostics.interactionEntries), category: "Click-through diagnostics")
+                                copy(formatted(diagnostics.interactionEntries), category: String(localized: "Click-through diagnostics"))
                             }
                             Button("Clear Click-Through Diagnostics", systemImage: "trash", role: .destructive) {
                                 diagnostics.clearInteractionEntries()
@@ -1028,7 +1035,7 @@ struct CrashReportManagerPanel: View {
                         }
                     } label: {
                         diagnosticLabel(
-                            title: "Click-Through Diagnostics",
+                            title: String(localized: "Click-Through Diagnostics"),
                             icon: "hand.tap",
                             isEnabled: diagnostics.interactionEnabled,
                             count: diagnostics.interactionEntries.count
@@ -1037,11 +1044,13 @@ struct CrashReportManagerPanel: View {
                 }
             }
 
-            if matchesCategory("feedback contact ive got a feedback") {
+            if matchesCategory("report bug github feedback contact ive got a feedback") {
                 Section {
-                    Button("I've Got Feedback!", systemImage: "bubble.left.and.bubble.right") { }
-                        .accessibilityIdentifier("diagnostics_feedback")
-                    Text("Contact details will be added in a future update.")
+                    Link(destination: URL(string: "https://github.com/vojtblasko/Medio/issues/new")!) {
+                        Label("Report a Bug on GitHub", systemImage: "bubble.left.and.bubble.right")
+                    }
+                    .accessibilityIdentifier("diagnostics_feedback")
+                    Text("Opens a new GitHub issue. You can copy diagnostics above and include them in your report.")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -1097,20 +1106,20 @@ struct CrashReportManagerPanel: View {
 
     private var storageEmptyMessage: String {
         diagnostics.storageEnabled
-            ? "No storage snapshot has been collected yet."
-            : "Storage collection is off. Turn it on to create a visible snapshot."
+            ? String(localized: "No storage snapshot has been collected yet.")
+            : String(localized: "Storage collection is off. Turn it on to create a visible snapshot.")
     }
 
     private var internetEmptyMessage: String {
         diagnostics.internetEnabled
-            ? "No internet activity has been collected yet."
-            : "Internet collection is off. Turn it on before reproducing the issue."
+            ? String(localized: "No internet activity has been collected yet.")
+            : String(localized: "Internet collection is off. Turn it on before reproducing the issue.")
     }
 
     private var interactionEmptyMessage: String {
         diagnostics.interactionEnabled
-            ? "No click-through activity has been collected yet."
-            : "Click-through collection is off. Turn it on before reproducing the issue."
+            ? String(localized: "No click-through activity has been collected yet.")
+            : String(localized: "Click-through collection is off. Turn it on before reproducing the issue.")
     }
 
     private func matchesCategory(_ text: String) -> Bool {
@@ -1246,12 +1255,12 @@ private struct LibrarySnapshotStatusRow: View {
     @ObservedObject var libraryStore: LibraryStore
 
     var body: some View {
-        CompatibleLabeledContent("Last Snapshot", value: lastSnapshotText)
+        CompatibleLabeledContent(String(localized: "Last Snapshot"), value: lastSnapshotText)
     }
 
     private var lastSnapshotText: String {
         guard let date = libraryStore.lastStorageScanSummary?.refreshedAt else {
-            return "No snapshot yet"
+            return String(localized: "No snapshot yet")
         }
         return date.formatted(date: .abbreviated, time: .shortened)
     }

@@ -1,0 +1,62 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "CFBundleDisplayName" : {
+      "comment" : "Bundle display name",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Medio"
+          }
+        }
+      }
+    },
+    "CFBundleName" : {
+      "comment" : "Bundle name",
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "new",
+            "value" : "Medio"
+          }
+        }
+      }
+    },
+    "Medio Internal Drag Items" : {
+
+    },
+    "NSLocalNetworkUsageDescription" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "cs" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Medio sdílí aktuální zvuk s prohlížeči ve vaší Wi-Fi pouze po spuštění sdílení."
+          }
+        },
+        "de" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Medio teilt das aktuelle Audio nur dann mit Browsern in deinem WLAN, wenn du eine Freigabesitzung startest."
+          }
+        },
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Medio shares the current audio with browsers on your Wi-Fi only when you start a sharing session."
+          }
+        },
+        "fr" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Medio partage l’audio actuel avec les navigateurs sur votre Wi-Fi uniquement lorsque vous démarrez une session de partage."
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

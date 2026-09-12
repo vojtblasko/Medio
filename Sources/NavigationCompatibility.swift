@@ -5,7 +5,16 @@ private struct MedioCompactRootChromeKey: EnvironmentKey {
     static let defaultValue = false
 }
 
+private struct MedioRootContentWidthKey: EnvironmentKey {
+    static let defaultValue: CGFloat = 390
+}
+
 extension EnvironmentValues {
+    var medioRootContentWidth: CGFloat {
+        get { self[MedioRootContentWidthKey.self] }
+        set { self[MedioRootContentWidthKey.self] = newValue }
+    }
+
     var medioUsesCompactRootChrome: Bool {
         get { self[MedioCompactRootChromeKey.self] }
         set { self[MedioCompactRootChromeKey.self] = newValue }
@@ -254,11 +263,13 @@ private struct CompatibleHiddenDarkNavigationChromeModifier: ViewModifier {
     @ViewBuilder
     func body(content: Content) -> some View {
         if #available(iOS 18.0, *) {
+            // This view is presented above the tabs. Changing tab visibility here causes
+            // the underlying page controls to animate back during sheet dismissal.
             content
-                .toolbarVisibility(.hidden, for: .navigationBar, .tabBar)
+                .toolbarVisibility(.hidden, for: .navigationBar)
         } else if #available(iOS 16.0, *) {
             content
-                .toolbar(.hidden, for: .navigationBar, .tabBar)
+                .toolbar(.hidden, for: .navigationBar)
         } else {
             content
                 .navigationBarHidden(true)
@@ -293,14 +304,11 @@ private struct LegacyHiddenNavigationChromeBridge: UIViewControllerRepresentable
     @MainActor
     final class Coordinator {
         private weak var navigationController: UINavigationController?
-        private weak var tabBarController: UITabBarController?
         private var previousNavigationBarHidden: Bool?
-        private var previousTabBarHidden: Bool?
 
         @discardableResult
         func apply(from viewController: UIViewController) -> Bool {
-            guard let navigationController = viewController.navigationController,
-                  let tabBarController = viewController.tabBarController else {
+            guard let navigationController = viewController.navigationController else {
                 return false
             }
 
@@ -310,37 +318,24 @@ private struct LegacyHiddenNavigationChromeBridge: UIViewControllerRepresentable
                 previousNavigationBarHidden = navigationController.isNavigationBarHidden
             }
 
-            if self.tabBarController !== tabBarController {
-                restoreTabBar()
-                self.tabBarController = tabBarController
-                previousTabBarHidden = tabBarController.tabBar.isHidden
-            }
-
             navigationController.setNavigationBarHidden(true, animated: false)
-            tabBarController.tabBar.isHidden = true
             return true
         }
 
         func restore() {
             restoreNavigationBar()
-            restoreTabBar()
         }
 
         private func restoreNavigationBar() {
             guard let navigationController,
                   let previousNavigationBarHidden else { return }
-            navigationController.setNavigationBarHidden(previousNavigationBarHidden, animated: false)
+            if !navigationController.isBeingDismissed {
+                navigationController.setNavigationBarHidden(previousNavigationBarHidden, animated: false)
+            }
             self.navigationController = nil
             self.previousNavigationBarHidden = nil
         }
 
-        private func restoreTabBar() {
-            guard let tabBarController,
-                  let previousTabBarHidden else { return }
-            tabBarController.tabBar.isHidden = previousTabBarHidden
-            self.tabBarController = nil
-            self.previousTabBarHidden = nil
-        }
     }
 }
 

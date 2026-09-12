@@ -2,10 +2,6 @@
 import AVFoundation
 import UIKit
 
-private func artistArtworkContentMode(for image: UIImage) -> ContentMode {
-    image.size.height > image.size.width ? .fill : .fit
-}
-
 enum MedioLayoutMetrics {
     static let pageControlHorizontalInset: CGFloat = 20
 }
@@ -605,6 +601,52 @@ struct NowPlayingAudioVisualizerArtwork: View {
     }
 }
 
+enum PlaybackIndicatorScope: Int, CaseIterable, Identifiable {
+    case songs = 1, albums = 2, artists = 4
+    static let key = "medio.settings.playbackIndicatorScopes"
+    static let all = 7
+    var id: Int { rawValue }
+    var title: String { switch self { case .songs: String(localized: "Songs"); case .albums: String(localized: "Albums"); case .artists: String(localized: "Artists") } }
+}
+
+struct PlaybackIndicatorSettingsSection: View {
+    @AppStorage(PlaybackIndicatorScope.key) private var scopes = PlaybackIndicatorScope.all
+    var body: some View {
+        Section("Playback Indicators") {
+            HStack {
+                Button("All") { scopes = PlaybackIndicatorScope.all }
+                Spacer()
+                Button("None") { scopes = 0 }
+            }.buttonStyle(.borderless)
+            ForEach(PlaybackIndicatorScope.allCases) { scope in
+                Button { scopes ^= scope.rawValue } label: {
+                    HStack {
+                        Text(scope.title).foregroundStyle(.primary)
+                        Spacer()
+                        if scopes & scope.rawValue != 0 { Image(systemName: "checkmark") }
+                    }
+                }
+                .accessibilityValue(scopes & scope.rawValue != 0 ? "Selected" : "Not selected")
+                .accessibilityIdentifier("settings_indicator_\(scope.title.lowercased())")
+            }
+            Text("Show the audio spectrum in place of artwork for the current song, its album, or its artist.")
+                .font(.caption).foregroundStyle(.secondary)
+        }
+    }
+}
+
+struct PlaybackQueueProgressModifier: ViewModifier {
+    let path: String
+    @EnvironmentObject private var playbackStore: PlaybackStore
+    func body(content: Content) -> some View {
+        content.opacity(playbackStore.pastQueueItemIDs.contains(path) ? 0.5 : 1)
+    }
+}
+
+extension View {
+    func playbackQueueProgress(for path: String) -> some View { modifier(PlaybackQueueProgressModifier(path: path)) }
+}
+
 struct MediaItemRow: View {
     let item: FileInfo
     let librarySongs: [FileInfo]
@@ -619,8 +661,10 @@ struct MediaItemRow: View {
         visualOverride?.artist ?? item.author ?? ""
     }
 
+    @AppStorage(PlaybackIndicatorScope.key) private var indicatorScopes = PlaybackIndicatorScope.all
+
     private var showsNowPlayingVisualizer: Bool {
-        item.fileType == .music && playbackStore.nowPlaying?.id == item.id
+        indicatorScopes & PlaybackIndicatorScope.songs.rawValue != 0 && item.fileType == .music && playbackStore.nowPlaying?.id == item.id
     }
 
     var body: some View {
@@ -647,6 +691,7 @@ struct MediaItemRow: View {
         .padding(.vertical, 4)
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
+        .playbackQueueProgress(for: item.id)
         .onAppear(perform: loadOverride)
         .onReceive(NotificationCenter.default.publisher(for: .medioVisualMetadataOverridesDidChange)) { notification in
             guard let changedPath = notification.userInfo?["path"] as? String else {
@@ -711,12 +756,13 @@ struct FavoritePriorityArtworkView: View {
 /// Preserve the complete source artwork, including portrait and landscape covers.
 struct MediaCoverArtwork: View {
     let image: UIImage
+    var contentMode: ContentMode = .fit
 
     var body: some View {
         Image(uiImage: image)
             .resizable()
             .interpolation(.high)
-            .scaledToFit()
+            .aspectRatio(contentMode: contentMode)
     }
 }
 
@@ -736,9 +782,9 @@ struct SongArtworkView: View {
     var body: some View {
         Group {
             if let img = customArtwork {
-                MediaCoverArtwork(image: img)
+                MediaCoverArtwork(image: img, contentMode: .fill)
             } else if let img = cachedArtwork {
-                MediaCoverArtwork(image: img)
+                MediaCoverArtwork(image: img, contentMode: .fill)
             } else {
                 Image(systemName: fallbackSystemImage)
                     .font(.system(size: max(14, size * 0.32), weight: .medium))
@@ -883,10 +929,15 @@ struct FolderArtworkView: View {
 
 struct AlbumRow: View {
     let album: ShadowAlbum
+    @EnvironmentObject private var playbackStore: PlaybackStore
+    @AppStorage(PlaybackIndicatorScope.key) private var indicatorScopes = PlaybackIndicatorScope.all
 
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
-            if let firstSong = album.songs.first {
+            if indicatorScopes & PlaybackIndicatorScope.albums.rawValue != 0,
+               album.songs.contains(where: { $0.id == playbackStore.nowPlaying?.id }) {
+                NowPlayingAudioVisualizerArtwork(isPlaying: playbackStore.isPlaying, levels: playbackStore.audioLevels)
+            } else if let firstSong = album.songs.first {
                 SongArtworkView(path: firstSong.id)
             } else {
                 Image(systemName: "square.stack")
@@ -897,13 +948,13 @@ struct AlbumRow: View {
             }
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(album.name)
+                Text(localizedMediaPlaceholder(album.name))
                     .font(.body)
                     .foregroundStyle(.primary)
                     .lineLimit(nil)
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
-                Text("\(album.songs.count) song\(album.songs.count == 1 ? "" : "s")")
+                Text(String(localized: "\(album.songs.count) songs"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -916,23 +967,27 @@ struct AlbumRow: View {
 
 struct ArtistRow: View {
     let artist: ShadowArtist
+    @EnvironmentObject private var playbackStore: PlaybackStore
+    @AppStorage(PlaybackIndicatorScope.key) private var indicatorScopes = PlaybackIndicatorScope.all
     var canFetchProfileImage = false
 
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
-            ArtistProfileArtworkView(
-                artistName: artist.name,
-                canFetchOnline: canFetchProfileImage
-            )
+            if indicatorScopes & PlaybackIndicatorScope.artists.rawValue != 0,
+               artist.songs.contains(where: { $0.id == playbackStore.nowPlaying?.id }) {
+                NowPlayingAudioVisualizerArtwork(isPlaying: playbackStore.isPlaying, levels: playbackStore.audioLevels)
+            } else {
+                ArtistProfileArtworkView(artistName: artist.name, canFetchOnline: canFetchProfileImage)
+            }
 
             VStack(alignment: .leading, spacing: 4) {
-                Text(artist.name)
+                Text(localizedMediaPlaceholder(artist.name))
                     .font(.body)
                     .foregroundStyle(.primary)
                     .lineLimit(nil)
                     .multilineTextAlignment(.leading)
                     .fixedSize(horizontal: false, vertical: true)
-                Text("\(artist.songs.count) song\(artist.songs.count == 1 ? "" : "s")")
+                Text(String(localized: "\(artist.songs.count) songs"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -956,7 +1011,7 @@ struct ArtistProfileArtworkView: View {
             if let image {
                 Image(uiImage: image)
                     .resizable()
-                    .aspectRatio(contentMode: artistArtworkContentMode(for: image))
+                    .aspectRatio(contentMode: .fill)
             } else {
                 Image(systemName: "person.fill")
                     .font(.system(size: max(16, size * 0.38), weight: .medium))
@@ -1004,5 +1059,14 @@ struct ArtistProfileArtworkView: View {
         guard let fetchedImage = await ArtistProfileImageLoader.shared.image(for: artistName, canFetchOnline: canFetchOnline),
               !Task.isCancelled else { return }
         image = fetchedImage
+    }
+}
+
+/// Localize only Medio's placeholder names; user metadata remains verbatim.
+func localizedMediaPlaceholder(_ value: String) -> String {
+    switch value {
+    case "Unknown Artist": return String(localized: "Unknown Artist")
+    case "Unknown Album": return String(localized: "Unknown Album")
+    default: return value
     }
 }

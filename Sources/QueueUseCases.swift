@@ -1,7 +1,6 @@
 import Foundation
 
-/// Queue mutation helpers. Since `PlaybackService` currently only supports `setQueue`,
-/// these use-cases rebuild a new queue and call `setQueue` to apply it.
+/// Queue edits preserve the active track and playback clock.
 @MainActor
 struct QueueUseCases {
     /// Put a list of items into the queue without forcing playback state.
@@ -23,28 +22,23 @@ struct QueueUseCases {
         func execute(_ items: [MediaItem], playbackStore: PlaybackStore, playbackService: PlaybackService) async {
             guard !items.isEmpty else { return }
 
-            // Start from authoritative visible queue from the store
-            var curQueue = playbackStore.queue
-            let curIndex = playbackStore.currentIndex ?? playbackStore.playback.queueIndex ?? 0
+            await Self.insert(items, atEnd: false, store: playbackStore, service: playbackService)
+        }
 
-            // If empty, set new queue deterministically from items
-            if curQueue.isEmpty {
-                await playbackService.setQueue(items, startAt: 0)
+        static func insert(_ items: [MediaItem], atEnd: Bool, store: PlaybackStore, service: PlaybackService) async {
+            let queue = store.queue
+            guard !queue.isEmpty else {
+                await service.setQueue(items, startAt: 0)
                 return
             }
-
-            let safeCur = min(max(curIndex, 0), max(curQueue.count - 1, 0))
-
-            // To prevent duplicates, remove any occurrences of items first
-            let idsToInsert = Set(items.map { $0.id })
-            curQueue.removeAll(where: { idsToInsert.contains($0.id) })
-
-            // Insert items immediately after current item
-            let insertAt = min(safeCur + 1, curQueue.count)
-            curQueue.insert(contentsOf: items, at: insertAt)
-
-            // New start index remains pointing to current item
-            await playbackService.setQueue(curQueue, startAt: safeCur)
+            let current = store.queueIndexForControls ?? 0
+            let ids = Set(items.map(\.id))
+            // Never remove the active occurrence when moving requested items into the upcoming queue.
+            let retained = queue.indices.filter { $0 == current || !ids.contains(queue[$0].id) }
+            var updated = retained.map { queue[$0] }
+            let newCurrent = retained.firstIndex(of: current) ?? 0
+            updated.insert(contentsOf: items, at: atEnd ? updated.count : newCurrent + 1)
+            await service.updateQueue(updated, currentIndex: newCurrent, preservingCurrentItem: true)
         }
     }
 
@@ -54,21 +48,7 @@ struct QueueUseCases {
         func execute(_ items: [MediaItem], playbackStore: PlaybackStore, playbackService: PlaybackService) async {
             guard !items.isEmpty else { return }
 
-            var curQueue = playbackStore.queue
-
-            // If empty, deterministic set
-            if curQueue.isEmpty {
-                await playbackService.setQueue(items, startAt: 0)
-                return
-            }
-
-            // Prevent duplicates by removing existing occurrences first
-            let idsToAdd = Set(items.map { $0.id })
-            curQueue.removeAll(where: { idsToAdd.contains($0.id) })
-
-            let safeCur = playbackStore.currentIndex ?? playbackStore.playback.queueIndex ?? 0
-            let newQueue = curQueue + items
-            await playbackService.setQueue(newQueue, startAt: min(max(safeCur, 0), max(newQueue.count - 1, 0)))
+            await PlayNextUseCase.insert(items, atEnd: true, store: playbackStore, service: playbackService)
         }
     }
 
@@ -78,34 +58,15 @@ struct QueueUseCases {
         func execute(ids: [String], playbackStore: PlaybackStore, playbackService: PlaybackService) async {
             guard !ids.isEmpty else { return }
 
-            var curQueue = playbackStore.queue
-            let curIndex = playbackStore.currentIndex ?? playbackStore.playback.queueIndex ?? 0
-
-            // If queue empty or ids not present, noop
+            let queue = playbackStore.queue
+            let current = playbackStore.queueIndexForControls ?? 0
             let idsSet = Set(ids)
-            guard curQueue.contains(where: { idsSet.contains($0.id) }) else { return }
-
-            // Remember the currently playing item id to try to preserve it
-            let currentId = (curIndex >= 0 && curIndex < curQueue.count) ? curQueue[curIndex].id : nil
-
-            // Remove items
-            curQueue.removeAll(where: { idsSet.contains($0.id) })
-
-            // Deduplicate just in case
-            var seen = Set<String>()
-            curQueue.removeAll(where: { !seen.insert($0.id).inserted })
-
-            // Determine new current index: prefer same item id if still present, otherwise clamp
-            var newIndex: Int? = nil
-            if let cid = currentId, let idx = curQueue.firstIndex(where: { $0.id == cid }) {
-                newIndex = idx
-            } else if !curQueue.isEmpty {
-                newIndex = min(max(curIndex, 0), curQueue.count - 1)
-            } else {
-                newIndex = nil
-            }
-
-            await playbackService.setQueue(curQueue, startAt: newIndex ?? 0)
+            let retained = queue.indices.filter { !idsSet.contains(queue[$0].id) }
+            guard retained.count != queue.count else { return }
+            let newIndex = retained.firstIndex(of: current)
+                ?? retained.firstIndex(where: { $0 > current }) ?? max(retained.count - 1, 0)
+            await playbackService.updateQueue(retained.map { queue[$0] }, currentIndex: newIndex,
+                                              preservingCurrentItem: retained.contains(current))
         }
     }
 

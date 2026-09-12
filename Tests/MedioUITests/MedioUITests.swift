@@ -190,6 +190,136 @@ final class MedioUITests: XCTestCase {
         XCTAssertFalse(app.buttons["Choose priority folder 1"].exists)
     }
 
+    func testPriorityImageCardKeepsFolderDimensionsInEveryViewStyle() {
+        let app = makeApp(arguments: ["-medioUITestPriorityImage"])
+        app.launch()
+        for style in ["List", "Icons", "Desktop Style"] {
+            wait(app.buttons["Home Options"])
+            app.buttons["Home Options"].tap()
+            app.buttons[style].tap()
+            let imageCard = app.buttons["Choose priority folder 2"]
+            let folderCard = app.buttons["Choose priority folder 3"]
+            wait(imageCard); wait(folderCard)
+            XCTAssertEqual(imageCard.frame.width, folderCard.frame.width, accuracy: 1, style)
+            XCTAssertEqual(imageCard.frame.height, folderCard.frame.height, accuracy: 1, style)
+            let screenshot = XCTAttachment(screenshot: app.screenshot())
+            screenshot.name = "Image and folder cards - \(style)"
+            screenshot.lifetime = .keepAlways
+            add(screenshot)
+        }
+    }
+
+    func testPriorityImageCropMatchesCardAndSavesWithoutGrowing() {
+        let app = makeApp(arguments: ["-medioUITestPriorityImage"])
+        app.launch()
+        let card = app.buttons["Choose priority folder 2"]
+        wait(card)
+        let originalFrame = card.frame
+        card.press(forDuration: 1)
+        app.buttons["Make Image"].tap()
+        app.buttons["Change Image"].tap()
+        app.buttons["Choose from Files"].tap()
+        let browse = app.buttons["Browse"].firstMatch
+        if browse.waitForExistence(timeout: 3), !browse.isSelected { browse.tap() }
+        let file = app.cells.matching(NSPredicate(format: "label CONTAINS %@", "Priority Test Image")).firstMatch
+        if !file.waitForExistence(timeout: 3) {
+            let onDevice = app.cells.matching(NSPredicate(format: "label CONTAINS %@", "On My iPhone")).firstMatch
+            if onDevice.exists { onDevice.tap() }
+            else if app.staticTexts["On My iPhone"].exists { app.staticTexts["On My iPhone"].tap() }
+            let medio = app.cells.matching(NSPredicate(format: "label BEGINSWITH %@", "Medio")).firstMatch
+            wait(medio); medio.tap()
+        }
+        wait(file); file.tap()
+        wait(app.navigationBars["Crop Cover"])
+        let crop = app.images["cover_crop_viewport"]
+        wait(crop)
+        XCTAssertEqual(crop.frame.width / crop.frame.height, originalFrame.width / originalFrame.height, accuracy: 0.03)
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Priority image rectangular crop"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+        app.buttons["Use Image"].tap()
+        wait(app.buttons["Change Image"])
+        app.buttons["sheet_close"].tap()
+        wait(card)
+        XCTAssertEqual(card.frame.width, originalFrame.width, accuracy: 1)
+        XCTAssertEqual(card.frame.height, originalFrame.height, accuracy: 1)
+    }
+
+    func testNativeSortDirectionChangesOnReselection() {
+        let app = makeApp()
+        app.launch()
+        app.buttons["Home Options"].tap()
+        app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Name")).firstMatch.tap()
+        app.buttons["Home Options"].tap()
+        wait(app.buttons.matching(NSPredicate(format: "label ENDSWITH %@", ", Ascending")).firstMatch)
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Native sort menu - Ascending"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+        app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Name")).firstMatch.tap()
+        app.buttons["Home Options"].tap()
+        wait(app.buttons.matching(NSPredicate(format: "label ENDSWITH %@", ", Descending")).firstMatch)
+        app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", "Kind")).firstMatch.tap()
+        app.buttons["Home Options"].tap()
+        wait(app.buttons.matching(NSPredicate(format: "label ENDSWITH %@", ", Ascending")).firstMatch)
+    }
+
+    func testQueueShowsRepeatSongAndQueueModes() {
+        let app = makeApp()
+        app.launch()
+        app.buttons["Song One"].tap()
+        app.buttons["Now Playing"].tap()
+        wait(app.buttons["now_playing_repeat"])
+        app.buttons["now_playing_repeat"].tap()
+        app.buttons["now_playing_queue"].tap()
+        wait(app.navigationBars["Queue"])
+        XCTAssertEqual(app.buttons.matching(NSPredicate(format: "identifier BEGINSWITH %@ AND label == %@", "queue_item_", "Song One")).firstMatch.value as? String, "Loop song")
+        XCTAssertFalse(app.otherElements["queue_repeat_all"].exists)
+        app.buttons["BackButton"].tap()
+        app.buttons["now_playing_repeat"].tap()
+        app.buttons["now_playing_queue"].tap()
+        wait(app.staticTexts["Loop queue"])
+        let screenshot = XCTAttachment(screenshot: app.screenshot())
+        screenshot.name = "Queue with repeat indicator"
+        screenshot.lifetime = .keepAlways
+        add(screenshot)
+    }
+
+    func testNewPlaybackOnlineAndFavoritesSettingsAreAccessible() {
+        let app = makeApp()
+        app.launch()
+        app.buttons["Home Options"].tap()
+        app.buttons["Settings"].tap()
+        wait(app.navigationBars["Settings"])
+        let songs = app.buttons["settings_indicator_songs"]
+        wait(songs)
+        XCTAssertEqual(songs.value as? String, "Selected")
+        songs.tap()
+        XCTAssertEqual(songs.value as? String, "Not selected")
+        XCTAssertEqual(app.buttons["settings_indicator_albums"].value as? String, "Selected")
+        XCTAssertEqual(app.buttons["settings_indicator_artists"].value as? String, "Selected")
+        let internet = app.switches["settings_internet_access"]
+        if !internet.isHittable { app.swipeUp() }
+        wait(internet)
+        XCTAssertEqual(internet.value as? String, "0")
+        internet.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
+        XCTAssertEqual(internet.value as? String, "1")
+        for feature in ["artistLookup", "imageMetadata", "imageDownloads"] {
+            let control = app.switches["settings_online_\(feature)"]
+            wait(control)
+            XCTAssertTrue(control.isEnabled)
+        }
+        let priority = app.switches["settings_priority_favorites"]
+        for _ in 0..<5 where !priority.exists || !priority.isHittable { app.swipeUp() }
+        wait(priority)
+        let home = app.switches["settings_home_favorites"]
+        XCTAssertEqual(home.value as? String, "1")
+        priority.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
+        XCTAssertEqual(priority.value as? String, "0")
+        XCTAssertEqual(home.value as? String, "1")
+    }
+
     func testPriorityImagePickersPresentAboveTheOpenPanel() {
         let app = makeApp()
         app.launch()
@@ -375,4 +505,45 @@ final class MedioUITests: XCTestCase {
         waitForExpectations(timeout: 5)
     }
 
+}
+
+extension MedioUITests {
+    func testDefaultLanguagesTranslateHomeMenusAndSettings() {
+        let languages = [
+            ("en", "en_US", "Home", "Home Options", "Settings", "Ascending", "Name"),
+            ("cs", "cs_CZ", "Domů", "Možnosti úvodní stránky", "Nastavení", "Vzestupně", "Název"),
+            ("de", "de_DE", "Start", "Startoptionen", "Einstellungen", "Aufsteigend", "Name"),
+            ("fr", "fr_FR", "Accueil", "Options de l’accueil", "Réglages", "Croissant", "Nom")
+        ]
+        for (language, locale, home, options, settings, ascending, name) in languages {
+            let app = makeApp(arguments: ["-AppleLanguages", "(\(language))", "-AppleLocale", locale])
+            app.launch()
+            wait(app.tabBars.buttons[home])
+            wait(app.buttons[options])
+            app.buttons[options].tap()
+            wait(app.buttons[settings])
+            app.buttons.matching(NSPredicate(format: "label BEGINSWITH %@", name)).firstMatch.tap()
+            app.buttons[options].tap()
+            XCTAssertTrue(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", ascending)).firstMatch.exists)
+            let menu = XCTAttachment(screenshot: app.screenshot())
+            menu.name = "\(language)-native-menu"; menu.lifetime = .keepAlways; add(menu)
+            app.buttons[settings].tap()
+            wait(app.switches["settings_audio_sharing"])
+            let screenshot = XCTAttachment(screenshot: app.screenshot())
+            screenshot.name = "\(language)-settings"; screenshot.lifetime = .keepAlways; add(screenshot)
+            app.terminate()
+        }
+    }
+
+    func testNowPlayingControlsSitLowerAndStayReachable() {
+        let app = makeApp(arguments: ["-medioStartFirstPlayable", "-medioInitialRoute", "nowplaying", "-AppleLanguages", "(en)"])
+        app.launch()
+        let repeatButton = app.buttons["now_playing_repeat"]
+        wait(repeatButton)
+        XCTAssertTrue(repeatButton.isHittable)
+        XCTAssertGreaterThan(repeatButton.frame.midY, app.frame.height * 0.75)
+        XCTAssertLessThan(repeatButton.frame.maxY, app.frame.height - 20)
+        let attachment = XCTAttachment(screenshot: app.screenshot())
+        attachment.name = "now-playing-lower-controls"; attachment.lifetime = .keepAlways; add(attachment)
+    }
 }

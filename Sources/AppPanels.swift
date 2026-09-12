@@ -8,13 +8,13 @@ extension FileInfo {
     var medioAboutActionTitle: String {
         if MedioShadowFolder.isFavorites(id) { return "About Favorites" }
         switch fileType {
-        case .folder: return "About Folder"
-        case .music: return "About Music"
+        case .folder: return String(localized: "About Folder")
+        case .music: return String(localized: "About Music")
         case .lyrics:
-            return URL(fileURLWithPath: id).pathExtension.lowercased() == "txt" ? "About Text" : "About Lyrics"
-        case .video: return "About Video"
+            return URL(fileURLWithPath: id).pathExtension.lowercased() == "txt" ? String(localized: "About Text") : String(localized: "About Lyrics")
+        case .video: return String(localized: "About Video")
         case .unrecognized:
-            return URL(fileURLWithPath: id).pathExtension.lowercased() == "txt" ? "About Text" : "About File"
+            return URL(fileURLWithPath: id).pathExtension.lowercased() == "txt" ? String(localized: "About Text") : String(localized: "About File")
         }
     }
 }
@@ -108,130 +108,98 @@ private func revertCoverImage(for paths: [String], container: AppContainer) {
     }
 }
 
-private struct SquareImageCropSheet: View {
+/// Shared preview/export geometry keeps panning inside the image at every zoom level.
+struct CoverCropGeometry {
+    static func imageRect(source: CGSize, viewport: CGSize, zoom: CGFloat, offset: CGSize) -> CGRect {
+        guard source.width > 0, source.height > 0 else { return CGRect(origin: .zero, size: viewport) }
+        let scale = max(viewport.width / source.width, viewport.height / source.height) * max(1, zoom)
+        let size = CGSize(width: source.width * scale, height: source.height * scale)
+        let limitX = max(0, (size.width - viewport.width) / 2)
+        let limitY = max(0, (size.height - viewport.height) / 2)
+        return CGRect(x: (viewport.width - size.width) / 2 + min(limitX, max(-limitX, offset.width)),
+                      y: (viewport.height - size.height) / 2 + min(limitY, max(-limitY, offset.height)),
+                      width: size.width, height: size.height)
+    }
+}
+
+private struct CoverImageCropSheet: View {
     let image: UIImage
+    var aspectRatio: CGFloat = 1
     let onCancel: () -> Void
     let onUse: (UIImage) -> Void
-
     @State private var offset: CGSize = .zero
     @State private var lastOffset: CGSize = .zero
     @State private var scale: CGFloat = 1
     @State private var lastScale: CGFloat = 1
-    @State private var cropSide: CGFloat = 1
+    @State private var cropSize = CGSize(width: 1, height: 1)
 
     var body: some View {
         CompatibleNavigationStack {
             VStack(spacing: 18) {
                 GeometryReader { proxy in
-                    let side = min(proxy.size.width - 32, proxy.size.height)
-                    ZStack {
-                        Color.black.opacity(0.9)
-                        Image(uiImage: image)
-                            .interpolation(.high)
-                            .resizable()
-                            .scaledToFill()
-                            .scaleEffect(scale)
-                            .offset(offset)
-                            .frame(width: side, height: side)
-                            .clipped()
-                    }
-                    .frame(width: side, height: side)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                    .overlay(RoundedRectangle(cornerRadius: 12).stroke(Color.primary.opacity(0.18), lineWidth: 1))
-                    .position(x: proxy.size.width / 2, y: proxy.size.height / 2)
-                    .gesture(
-                        DragGesture()
-                            .onChanged { value in
-                                offset = CGSize(
-                                    width: lastOffset.width + value.translation.width,
-                                    height: lastOffset.height + value.translation.height
-                                )
-                            }
-                            .onEnded { _ in
-                                lastOffset = offset
-                            }
-                    )
-                    .simultaneousGesture(
-                        MagnificationGesture()
-                            .onChanged { value in
-                                scale = min(5, max(1, lastScale * value))
-                            }
-                            .onEnded { _ in
-                                lastScale = scale
-                            }
-                    )
-                    .onAppear { cropSide = max(1, side) }
-                    .onChange(of: side) { newValue in cropSide = max(1, newValue) }
+                    let width = max(1, min(proxy.size.width, proxy.size.height * aspectRatio))
+                    let viewport = CGSize(width: width, height: width / aspectRatio)
+                    let rect = CoverCropGeometry.imageRect(source: image.size, viewport: viewport, zoom: scale, offset: offset)
+                    Image(uiImage: image)
+                        .resizable()
+                        .interpolation(.high)
+                        .frame(width: rect.width, height: rect.height)
+                        .position(x: rect.midX, y: rect.midY)
+                        .frame(width: viewport.width, height: viewport.height)
+                        .clipped()
+                        .overlay(Rectangle().stroke(Color.primary.opacity(0.4), lineWidth: 1))
+                        .accessibilityIdentifier("cover_crop_viewport")
+                        .contentShape(Rectangle())
+                        .gesture(DragGesture().onChanged { value in
+                            offset = CGSize(width: lastOffset.width + value.translation.width,
+                                            height: lastOffset.height + value.translation.height)
+                        }.onEnded { _ in constrainOffset(in: viewport); lastOffset = offset })
+                        .simultaneousGesture(MagnificationGesture().onChanged { value in
+                            scale = min(5, max(1, lastScale * value))
+                        }.onEnded { _ in lastScale = scale; constrainOffset(in: viewport) })
+                        .position(x: proxy.size.width / 2, y: proxy.size.height / 2)
+                        .onAppear { cropSize = viewport }
+                        .onChange(of: viewport) { size in cropSize = size; constrainOffset(in: size) }
                 }
-                .frame(minHeight: 320)
-
-                Text("Drag or pinch to choose the square crop.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-
-                Slider(value: $scale, in: 1...5) {
-                    Text("Zoom")
-                } minimumValueLabel: {
+                .frame(minHeight: 240)
+                Text("Drag or pinch to choose the crop.")
+                    .font(.caption).foregroundStyle(.secondary)
+                Slider(value: Binding(get: { scale }, set: {
+                    scale = $0; lastScale = $0; constrainOffset(in: cropSize)
+                }), in: 1...5) { Text("Zoom") } minimumValueLabel: {
                     Image(systemName: "minus.magnifyingglass")
-                } maximumValueLabel: {
-                    Image(systemName: "plus.magnifyingglass")
-                }
-                .onChange(of: scale) { newValue in
-                    lastScale = newValue
-                }
+                } maximumValueLabel: { Image(systemName: "plus.magnifyingglass") }
             }
             .padding()
             .navigationTitle("Crop Cover")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel", action: onCancel)
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Use Image") {
-                        onUse(renderedSquareImage())
-                    }
-                }
+                ToolbarItem(placement: .cancellationAction) { Button("Cancel", action: onCancel) }
+                ToolbarItem(placement: .confirmationAction) { Button("Use Image") { onUse(renderedImage()) } }
                 ToolbarItem(placement: .bottomBar) {
-                    Button("Reset Crop") {
-                        offset = .zero
-                        lastOffset = .zero
-                        scale = 1
-                        lastScale = 1
-                    }
+                    Button("Reset Crop") { offset = .zero; lastOffset = .zero; scale = 1; lastScale = 1 }
                 }
             }
         }
     }
 
-    private func renderedSquareImage() -> UIImage {
-        let targetSide: CGFloat = 900
-        let sourceSize = image.size
-        guard sourceSize.width > 0, sourceSize.height > 0 else { return image }
+    private func constrainOffset(in viewport: CGSize) {
+        let rect = CoverCropGeometry.imageRect(source: image.size, viewport: viewport, zoom: scale, offset: offset)
+        offset = CGSize(width: rect.midX - viewport.width / 2, height: rect.midY - viewport.height / 2)
+        lastOffset = offset
+    }
 
-        let baseScale = max(targetSide / sourceSize.width, targetSide / sourceSize.height)
-        let drawScale = baseScale * scale
-        let drawSize = CGSize(width: sourceSize.width * drawScale, height: sourceSize.height * drawScale)
-        let normalizedOffset = CGSize(
-            width: offset.width / max(cropSide, 1) * targetSide,
-            height: offset.height / max(cropSide, 1) * targetSide
-        )
-        let drawRect = CGRect(
-            x: (targetSide - drawSize.width) / 2 + normalizedOffset.width,
-            y: (targetSide - drawSize.height) / 2 + normalizedOffset.height,
-            width: drawSize.width,
-            height: drawSize.height
-        )
-
+    private func renderedImage() -> UIImage {
+        let target = CGSize(width: aspectRatio >= 1 ? 900 : 900 * aspectRatio,
+                            height: aspectRatio >= 1 ? 900 / aspectRatio : 900)
+        let ratio = target.width / max(cropSize.width, 1)
+        let rect = CoverCropGeometry.imageRect(source: image.size, viewport: target, zoom: scale,
+            offset: CGSize(width: offset.width * ratio, height: offset.height * ratio))
         let format = UIGraphicsImageRendererFormat.default()
         format.scale = 1
-        let renderer = UIGraphicsImageRenderer(size: CGSize(width: targetSide, height: targetSide), format: format)
-        return renderer.image { context in
-            // Preserve hard pixel edges when a small cover is enlarged by the crop.
-            context.cgContext.interpolationQuality = .none
-            UIColor.systemBackground.setFill()
-            context.fill(CGRect(x: 0, y: 0, width: targetSide, height: targetSide))
-            image.draw(in: drawRect)
+        return UIGraphicsImageRenderer(size: target, format: format).image { context in
+            context.cgContext.interpolationQuality = .high
+            image.draw(in: rect)
         }
     }
 }
@@ -239,16 +207,17 @@ private struct SquareImageCropSheet: View {
 private struct QueueItemRow: View {
     let item: MediaItem
     let isCurrent: Bool
+    var repeatsCurrent = false
 
     var body: some View {
         HStack {
-            Image(systemName: isCurrent ? "speaker.wave.2.fill" : "music.note")
+            Image(systemName: isCurrent ? (repeatsCurrent ? "repeat.1" : "speaker.wave.2.fill") : "music.note")
                 .foregroundStyle(isCurrent ? Color.accentColor : Color.secondary)
                 .frame(width: 24)
             VStack(alignment: .leading, spacing: 3) {
                 Text(item.title)
                     .lineLimit(2)
-                Text(item.artist ?? "Unknown Artist")
+                Text(localizedMediaPlaceholder(item.artist ?? "Unknown Artist"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
@@ -266,16 +235,19 @@ struct QueuePanel: View {
         Group {
             List {
                 if vm.queue.isEmpty {
-                    CompatibleContentUnavailableView("Queue Empty", systemImage: "music.note.list")
+                    CompatibleContentUnavailableView(String(localized: "Queue Empty"), systemImage: "music.note.list")
                 } else {
-                    ForEach(Array(vm.queue.enumerated()), id: \.element.id) { index, item in
+                    ForEach(Array(vm.queue.enumerated()), id: \.offset) { index, item in
                         Button {
                             Task { await vm.play(at: index) }
                         } label: {
-                            QueueItemRow(item: item, isCurrent: vm.currentIndex == index)
+                            QueueItemRow(item: item, isCurrent: vm.currentIndex == index, repeatsCurrent: vm.playback.repeatMode == .one)
+                                .opacity(index < (vm.currentIndex ?? 0) ? 0.5 : 1)
                         }
                         .buttonStyle(.plain)
                         .accessibilityLabel(item.title)
+                        .accessibilityIdentifier("queue_item_\(index)")
+                        .accessibilityValue(vm.currentIndex == index && vm.playback.repeatMode == .one ? "Loop song" : "")
                         .medioNativeDrag(
                             container.libraryStore.allItems.first(where: { $0.id == item.id })
                         )
@@ -285,6 +257,11 @@ struct QueuePanel: View {
                     }
                     .onMove { offsets, destination in
                         Task { await vm.move(from: offsets, to: destination) }
+                    }
+                    if vm.playback.repeatMode == .all {
+                        Label("Loop queue", systemImage: "repeat")
+                            .foregroundStyle(.secondary)
+                            .accessibilityIdentifier("queue_repeat_all")
                     }
                 }
             }
@@ -354,7 +331,7 @@ struct FavoritesPanel: View {
         List {
             if vm.filtered.isEmpty {
                 CompatibleContentUnavailableView(
-                    vm.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "No Favorites" : "No Results",
+                    vm.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? String(localized: "No Favorites") : String(localized: "No Results"),
                     systemImage: "star"
                 )
             } else {
@@ -392,7 +369,7 @@ struct FavoritesPanel: View {
         ScrollView {
             if vm.filtered.isEmpty {
                 CompatibleContentUnavailableView(
-                    vm.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "No Favorites" : "No Results",
+                    vm.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? String(localized: "No Favorites") : String(localized: "No Results"),
                     systemImage: "star"
                 )
                 .frame(maxWidth: .infinity)
@@ -415,8 +392,8 @@ struct FavoritesPanel: View {
             librarySongs: container.libraryStore.librarySongs,
             storageContainerPath: "medio://desktop/favorites",
             filesystemContainerPath: nil,
-            defaultDropTitle: "Arrange Favorites",
-            emptyTitle: vm.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "No Favorites" : "No Results",
+            defaultDropTitle: String(localized: "Arrange Favorites"),
+            emptyTitle: vm.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? String(localized: "No Favorites") : String(localized: "No Results"),
             emptySystemImage: "star",
             isSelecting: false,
             selectedItemIDs: [],
@@ -472,48 +449,19 @@ struct FavoritesPanel: View {
     }
 
     private var favoritesOptionsMenu: some View {
-        ToolbarGlassMenu(accessibilityLabel: "Favorites Options") {
-            Section {
-                ForEach(FileBrowserViewStyle.menuCases, id: \.self) { style in
-                    Button {
-                        browserViewStyle = style
-                    } label: {
-                        MenuOptionLabel(
-                            title: style.title,
-                            systemImage: style.systemImage,
-                            isSelected: browserViewStyle == style
-                        )
-                    }
-                }
-            }
-
-            Section {
-                Button("Settings", systemImage: "gearshape") {
-                    router.present(.settings)
-                }
-            }
-
-            Section {
-                ForEach(FavoritesSortBy.menuCases, id: \.self) { sort in
-                    Button {
-                        container.settingsStore.selectFavoritesSort(sort)
-                    } label: {
-                        SortMenuOptionLabel(
-                            title: sort.title,
-                            isSelected: container.settingsStore.favoritesSortBy == sort,
-                            detail: favoritesSortDirection(for: sort)
-                        )
-                    }
-                }
-            }
-
-            Section {
-                Button("View Options", systemImage: "slider.horizontal.3") {
-                    showViewOptions = true
-                }
-            }
+        NativeBrowserOptionsMenu(accessibilityLabel: String(localized: "Favorites Options")) {
+            UIMenu(children: [
+                BrowserOptionsMenu.section([BrowserOptionsMenu.action("Settings", "gearshape") { router.present(.settings) }]),
+                BrowserOptionsMenu.views(selected: browserViewStyle) { browserViewStyle = $0 },
+                BrowserOptionsMenu.sorts(FavoritesSortBy.menuCases, selected: container.settingsStore.favoritesSortBy,
+                    ascending: container.settingsStore.favoritesSortAscending, title: { $0.title }) {
+                        container.settingsStore.selectFavoritesSort($0)
+                    },
+                BrowserOptionsMenu.section([BrowserOptionsMenu.action("View Options", "slider.horizontal.3") { showViewOptions = true }])
+            ])
         }
     }
+
 
     private func favoriteItemMenu(for item: FileInfo) -> UIMenu {
         UIMenu(children: [
@@ -523,10 +471,6 @@ struct FavoritesPanel: View {
         ])
     }
 
-    private func favoritesSortDirection(for sort: FavoritesSortBy) -> String? {
-        guard container.settingsStore.favoritesSortBy == sort else { return nil }
-        return container.settingsStore.favoritesSortAscending ? "Ascending" : "Descending"
-    }
 }
 
 struct FavoritesAboutPanel: View {
@@ -580,33 +524,33 @@ struct FileAboutPanel: View {
                 }
                 if item?.isDirectory == true, showsIconSection {
                     Section("Icon") {
-                        coverIconButton(subtitle: "Choose image, file, or folder color")
+                        coverIconButton(subtitle: String(localized: "Choose image, file, or folder color"))
                     }
                 } else {
                     if showsIconSection {
                         Section("Icon") {
-                            coverIconButton(subtitle: "Choose image from Photos or Files")
+                            coverIconButton(subtitle: String(localized: "Choose image from Photos or Files"))
                         }
                     }
                     if showsEditableMetadataSection {
                         Section("Editable Metadata") {
                             editableMetadataRow("Artist", value: metadataOverride?.artist ?? item?.author ?? "Unknown Artist")
-                            editableMetadataRow("Album", value: metadataOverride?.album ?? item?.album ?? "Unknown Album")
-                            editableMetadataRow("Genre", value: metadataOverride?.genre ?? item?.genre ?? "Not Set")
-                            editableMetadataRow("Year", value: metadataOverride?.year ?? item?.year ?? "Not Set")
+                            editableMetadataRow(String(localized: "Album"), value: metadataOverride?.album ?? item?.album ?? "Unknown Album")
+                            editableMetadataRow(String(localized: "Genre"), value: metadataOverride?.genre ?? item?.genre ?? String(localized: "Not Set"))
+                            editableMetadataRow(String(localized: "Year"), value: metadataOverride?.year ?? item?.year ?? String(localized: "Not Set"))
                         }
                     }
                 }
                 if showsPropertiesSection {
                     Section("Properties") {
                         if let properties {
-                            CompatibleLabeledContent("Kind", value: properties.kind)
+                            CompatibleLabeledContent(String(localized: "Kind"), value: properties.kind)
                             locationButton(properties.location)
-                            if let size = properties.size { CompatibleLabeledContent("Size", value: size) }
+                            if let size = properties.size { CompatibleLabeledContent(String(localized: "Size"), value: size) }
                             if let itemCount = properties.itemCount { CompatibleLabeledContent("Items", value: itemCount) }
-                            if let created = properties.created { CompatibleLabeledContent("Created", value: created) }
-                            if let modified = properties.modified { CompatibleLabeledContent("Modified", value: modified) }
-                            if let lastOpened = properties.lastOpened { CompatibleLabeledContent("Last Opened", value: lastOpened) }
+                            if let created = properties.created { CompatibleLabeledContent(String(localized: "Created"), value: created) }
+                            if let modified = properties.modified { CompatibleLabeledContent(String(localized: "Modified"), value: modified) }
+                            if let lastOpened = properties.lastOpened { CompatibleLabeledContent(String(localized: "Last Opened"), value: lastOpened) }
                         } else {
                             ProgressView("Loading properties")
                         }
@@ -615,12 +559,12 @@ struct FileAboutPanel: View {
                 if let item, showsMetadataSection {
                     Section("Metadata") {
                         if let author = item.author { CompatibleLabeledContent("Artist", value: author) }
-                        if let album = item.album { CompatibleLabeledContent("Album", value: album) }
-                        if let duration = item.durationMs { CompatibleLabeledContent("Duration", value: formattedDuration(duration)) }
+                        if let album = item.album { CompatibleLabeledContent(String(localized: "Album"), value: album) }
+                        if let duration = item.durationMs { CompatibleLabeledContent(String(localized: "Duration"), value: formattedDuration(duration)) }
                     }
                 }
                 if !hasSearchResults {
-                    CompatibleContentUnavailableView("No Results", systemImage: "magnifyingglass")
+                    CompatibleContentUnavailableView(String(localized: "No Results"), systemImage: "magnifyingglass")
                         .listRowBackground(Color.clear)
                 }
             }
@@ -642,7 +586,7 @@ struct FileAboutPanel: View {
                 nowPlayingVM.syncFromStore()
             }) {
                 EditMetadataView(
-                    title: aboutTitle.replacingOccurrences(of: "About", with: "Edit"),
+                    title: aboutTitle.replacingOccurrences(of: "About", with: String(localized: "Edit")),
                     filePaths: [path],
                     currentOverride: metadataOverride,
                     defaultValues: defaultMetadataValues,
@@ -650,7 +594,7 @@ struct FileAboutPanel: View {
                 )
             }
             .sheet(item: $pendingCoverCrop) { pending in
-                SquareImageCropSheet(
+                CoverImageCropSheet(
                     image: pending.image,
                     onCancel: { pendingCoverCrop = nil },
                     onUse: { image in
@@ -714,7 +658,7 @@ struct FileAboutPanel: View {
     }
 
     private var aboutOptionsMenu: some View {
-        ToolbarGlassMenu(accessibilityLabel: "File Options") {
+        ToolbarGlassMenu(accessibilityLabel: String(localized: "File Options")) {
             Button("Edit Details", systemImage: "pencil") {
                 showEditMetadata = true
             }
@@ -992,8 +936,8 @@ struct FileAboutPanel: View {
 
 private func aboutTitleForPath(_ path: String) -> String {
     let ext = URL(fileURLWithPath: path).pathExtension.lowercased()
-    if ext == "txt" { return "About Text" }
-    return "About File"
+    if ext == "txt" { return String(localized: "About Text") }
+    return String(localized: "About File")
 }
 
 private struct AboutCoverThumbnail: View {
@@ -1165,7 +1109,7 @@ private struct FileProperties {
             let size: String?
             let itemCount: String?
             if isDirectory.boolValue {
-                kind = "Folder"
+                kind = String(localized: "Folder")
                 size = nil
                 let children = (try? fileManager.contentsOfDirectory(
                     at: url,
@@ -1292,7 +1236,7 @@ struct FolderPanel: View {
         List {
             if vm.filtered.isEmpty {
                 CompatibleContentUnavailableView(
-                    vm.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Folder Empty" : "No Results",
+                    vm.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? String(localized: "Folder Empty") : String(localized: "No Results"),
                     systemImage: "folder"
                 )
             } else {
@@ -1309,7 +1253,7 @@ struct FolderPanel: View {
         ScrollView {
             if vm.filtered.isEmpty {
                 CompatibleContentUnavailableView(
-                    vm.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Folder Empty" : "No Results",
+                    vm.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? String(localized: "Folder Empty") : String(localized: "No Results"),
                     systemImage: "folder"
                 )
                 .frame(maxWidth: .infinity)
@@ -1333,7 +1277,7 @@ struct FolderPanel: View {
             storageContainerPath: path,
             filesystemContainerPath: path,
             defaultDropTitle: "Drop in \(folderTitle)",
-            emptyTitle: vm.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Folder Empty" : "No Results",
+            emptyTitle: vm.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? String(localized: "Folder Empty") : String(localized: "No Results"),
             emptySystemImage: "folder",
             isSelecting: isSelecting,
             selectedItemIDs: selectedItemIDs,
@@ -1353,60 +1297,22 @@ struct FolderPanel: View {
     }
 
     private var folderOptionsMenu: some View {
-        ToolbarGlassMenu(accessibilityLabel: "Folder Options") {
-            Section {
-                Button("Select", systemImage: "checkmark.circle") {
-                    isSelecting = true
-                }
-
-                Button("New Folder", systemImage: "folder.badge.plus") {
-                    router.present(.createFolder(parentPath: path))
-                }
-
-                Button("Import Files", systemImage: "square.and.arrow.down") {
-                    Task { await importFilesFromPicker() }
-                }
-
-                Button("Settings", systemImage: "gearshape") {
-                    router.present(.settings)
-                }
-            }
-
-            Section("View") {
-                ForEach(FileBrowserViewStyle.menuCases, id: \.self) { style in
-                    Button {
-                        browserViewStyle = style
-                    } label: {
-                        MenuOptionLabel(
-                            title: style.title,
-                            systemImage: style.systemImage,
-                            isSelected: browserViewStyle == style
-                        )
-                    }
-                }
-            }
-
-            Section("Sort By") {
-                ForEach(HomeSortBy.menuCases, id: \.self) { sort in
-                    Button {
-                        applySort(sort)
-                    } label: {
-                        SortMenuOptionLabel(
-                            title: sort.title,
-                            isSelected: container.settingsStore.homeSortBy == sort,
-                            detail: sortDirection(for: sort)
-                        )
-                    }
-                }
-            }
-
-            Section {
-                Button("View Options", systemImage: "slider.horizontal.3") {
-                    showViewOptions = true
-                }
-            }
+        NativeBrowserOptionsMenu(accessibilityLabel: String(localized: "Folder Options")) {
+            UIMenu(children: [
+                BrowserOptionsMenu.section([
+                    BrowserOptionsMenu.action("Select", "checkmark.circle") { isSelecting = true },
+                    BrowserOptionsMenu.action(String(localized: "New Folder"), "folder.badge.plus") { router.present(.createFolder(parentPath: path)) },
+                    BrowserOptionsMenu.action("Import Files", "square.and.arrow.down") { Task { await importFilesFromPicker() } },
+                    BrowserOptionsMenu.action("Settings", "gearshape") { router.present(.settings) }
+                ]),
+                BrowserOptionsMenu.views(selected: browserViewStyle) { browserViewStyle = $0 },
+                BrowserOptionsMenu.sorts(HomeSortBy.menuCases, selected: container.settingsStore.homeSortBy,
+                    ascending: container.settingsStore.homeSortAscending, title: { $0.title }, select: applySort),
+                BrowserOptionsMenu.section([BrowserOptionsMenu.action("View Options", "slider.horizontal.3") { showViewOptions = true }])
+            ])
         }
     }
+
 
     @ToolbarContentBuilder
     private var folderToolbar: some ToolbarContent {
@@ -1528,19 +1434,19 @@ struct FolderPanel: View {
 
     private func folderItemMenu(for item: FileInfo) -> UIMenu {
         var actions: [UIMenuElement] = [
-            UIAction(title: "Select", image: UIImage(systemName: "checkmark.circle")) { _ in
+            UIAction(title: String(localized: "Select"), image: UIImage(systemName: "checkmark.circle")) { _ in
                 isSelecting = true
                 selectedItemIDs = [item.id]
             },
             UIAction(title: item.medioAboutActionTitle, image: UIImage(systemName: "info.circle")) { _ in
                 router.present(.fileAbout(path: item.id))
             },
-            UIAction(title: "Move", image: UIImage(systemName: "folder")) { _ in
+            UIAction(title: String(localized: "Move"), image: UIImage(systemName: "folder")) { _ in
                 router.presentMoveItems([item.id])
             }
         ]
         if !selectedMovableIDs.isEmpty {
-            actions.append(UIAction(title: "Move Selected", image: UIImage(systemName: "folder.badge.person.crop")) { _ in
+            actions.append(UIAction(title: String(localized: "Move Selected"), image: UIImage(systemName: "folder.badge.person.crop")) { _ in
                 router.presentMoveItems(selectedMovableIDs)
             })
         }
@@ -1551,10 +1457,6 @@ struct FolderPanel: View {
         container.settingsStore.selectSort(sort)
     }
 
-    private func sortDirection(for sort: HomeSortBy) -> String? {
-        guard container.settingsStore.homeSortBy == sort else { return nil }
-        return container.settingsStore.homeSortAscending ? "Ascending" : "Descending"
-    }
 
     private func toggleSelection(for item: FileInfo) {
         if selectedItemIDs.contains(item.id) {
@@ -1621,7 +1523,7 @@ struct FolderPanel: View {
                 destinationDirectory: URL(fileURLWithPath: path, isDirectory: true)
             )
             guard !importedURLs.isEmpty else {
-                moveStatusMessage = "No files were imported."
+                moveStatusMessage = String(localized: "No files were imported.")
                 showMoveStatus = true
                 return
             }
@@ -1642,7 +1544,7 @@ struct FolderPanel: View {
         do {
             let result = try await FileMoveService().moveBatch(paths: paths, toFolder: destinationPath)
             guard !result.completed.isEmpty else {
-                moveStatusMessage = result.failures.first?.message ?? "These items cannot be moved to that folder."
+                moveStatusMessage = result.failures.first?.message ?? String(localized: "These items cannot be moved to that folder.")
                 showMoveStatus = true
                 return
             }
@@ -1719,11 +1621,17 @@ struct PriorityFolderPickerPanel: View {
 
 struct PrioritySlotAboutPanel: View {
     let slot: Int
+    @Environment(\.medioRootContentWidth) private var rootWidth
+    @Environment(\.medioUsesCompactRootChrome) private var compact
     @EnvironmentObject private var container: AppContainer
     @State private var showCoverSourceDialog = false
     @State private var pendingCoverCrop: PendingCoverCrop?
     @State private var errorMessage: String?
     @State private var showError = false
+
+    private var cardAspectRatio: CGFloat {
+        HomePriorityLayoutMetrics.cardAspectRatio(contentWidth: rootWidth, compact: compact)
+    }
 
     private var artworkPath: String? {
         container.settingsStore.prioritySlotArtworkPath(at: slot)
@@ -1770,8 +1678,9 @@ struct PrioritySlotAboutPanel: View {
             Button("Cancel", role: .cancel) {}
         }
         .sheet(item: $pendingCoverCrop) { pending in
-            SquareImageCropSheet(
+            CoverImageCropSheet(
                 image: pending.image,
+                aspectRatio: cardAspectRatio,
                 onCancel: { pendingCoverCrop = nil },
                 onUse: { image in
                     applyImage(image)
@@ -1793,13 +1702,13 @@ struct PrioritySlotAboutPanel: View {
                 .interpolation(.high)
                 .resizable()
                 .aspectRatio(contentMode: .fill)
-                .frame(width: 60, height: 60)
+                .frame(width: 88, height: 88 / cardAspectRatio)
                 .clipShape(RoundedRectangle(cornerRadius: 8))
         } else {
             Image(systemName: "folder.badge.plus")
                 .font(.system(size: 24, weight: .medium))
                 .foregroundStyle(.secondary)
-                .frame(width: 60, height: 60)
+                .frame(width: 88, height: 88 / cardAspectRatio)
                 .background(Color(.systemGray5), in: RoundedRectangle(cornerRadius: 8))
         }
     }
@@ -1811,11 +1720,7 @@ struct PrioritySlotAboutPanel: View {
             guard let image = UIImage(data: data) else {
                 throw SystemUIError.invalidSelection
             }
-            if imageNeedsSquareCrop(image) {
-                pendingCoverCrop = PendingCoverCrop(image: image)
-            } else {
-                applyImage(image)
-            }
+            pendingCoverCrop = PendingCoverCrop(image: image)
         } catch SystemUIError.cancelled {
             return
         } catch {
@@ -1873,7 +1778,7 @@ struct MoveItemPanel: View {
                 }
                 Section("Destination") {
                     if destinationFolders.isEmpty {
-                        CompatibleContentUnavailableView("No Available Folder", systemImage: "folder")
+                        CompatibleContentUnavailableView(String(localized: "No Available Folder"), systemImage: "folder")
                     } else {
                         ForEach(destinationFolders) { folder in
                             Button {
@@ -1917,7 +1822,7 @@ struct MoveItemPanel: View {
         do {
             let result = try await FileMoveService().moveBatch(paths: paths, toFolder: destinationPath)
             guard !result.completed.isEmpty else {
-                errorMessage = result.failures.first?.message ?? "These items cannot be moved to that folder."
+                errorMessage = result.failures.first?.message ?? String(localized: "These items cannot be moved to that folder.")
                 return
             }
             await container.libraryStore.refresh(scanUseCase: ScanLibraryUseCase(dataSource: container.mediaLibraryRepository))
@@ -1999,7 +1904,7 @@ struct AlbumPanel: View {
                 if vm.filtered.isEmpty {
                     Section("Music Files") {
                         CompatibleContentUnavailableView(
-                            vm.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "No Music Files" : "No Results",
+                            vm.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? String(localized: "No Music Files") : String(localized: "No Results"),
                             systemImage: "music.note"
                         )
                     }
@@ -2029,11 +1934,11 @@ struct AlbumPanel: View {
                     }
                 }
                 Section("About \(name)") {
-                    CompatibleLabeledContent("Tracks", value: "\(vm.metadata.songCountInAlbumFolders)")
+                    CompatibleLabeledContent(String(localized: "Tracks"), value: "\(vm.metadata.songCountInAlbumFolders)")
                     CompatibleLabeledContent("Artist", value: vm.metadata.subtitleArtist)
-                    CompatibleLabeledContent("Year", value: vm.metadata.subtitleYear)
-                    CompatibleLabeledContent("Genre", value: vm.metadata.genre)
-                    CompatibleLabeledContent("Credits", value: vm.metadata.credits)
+                    CompatibleLabeledContent(String(localized: "Year"), value: vm.metadata.subtitleYear)
+                    CompatibleLabeledContent(String(localized: "Genre"), value: vm.metadata.genre)
+                    CompatibleLabeledContent(String(localized: "Credits"), value: vm.metadata.credits)
                 }
             }
             .listStyle(.plain)
@@ -2044,11 +1949,11 @@ struct AlbumPanel: View {
             )
             .textInputAutocapitalization(.never)
             .disableAutocorrection(true)
-            .navigationTitle(name)
+            .navigationTitle(localizedMediaPlaceholder(name))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 CircularTrailingToolbarItem {
-                    ToolbarGlassMenu(accessibilityLabel: "Album Options") {
+                    ToolbarGlassMenu(accessibilityLabel: String(localized: "Album Options")) {
                         Button("About Album", systemImage: "info.circle") {
                             if let artistName {
                                 router.present(.artistAlbumAbout(artistName: artistName, albumName: name))
@@ -2072,7 +1977,7 @@ struct AlbumPanel: View {
     private var albumHeroSubtitle: String {
         let artist = vm.metadata.subtitleArtist == "NA" ? nil : vm.metadata.subtitleArtist
         let year = vm.metadata.subtitleYear == "NA" ? nil : vm.metadata.subtitleYear
-        let tracks = "\(vm.metadata.songCountInAlbumFolders) song\(vm.metadata.songCountInAlbumFolders == 1 ? "" : "s")"
+        let tracks = String(localized: "\(vm.metadata.songCountInAlbumFolders) songs")
         return [artist, year, tracks]
             .compactMap { $0 }
             .joined(separator: " • ")
@@ -2151,10 +2056,14 @@ private struct AlbumHeaderArtwork: View {
 
 private struct AlbumTrackRow: View {
     let item: FileInfo
+    @EnvironmentObject private var playbackStore: PlaybackStore
+    @AppStorage(PlaybackIndicatorScope.key) private var indicatorScopes = PlaybackIndicatorScope.all
 
     var body: some View {
         HStack(alignment: .center, spacing: 12) {
-            if let trackNumber = displayTrackNumber {
+            if indicatorScopes & PlaybackIndicatorScope.songs.rawValue != 0, playbackStore.nowPlaying?.id == item.id {
+                NowPlayingAudioVisualizerArtwork(isPlaying: playbackStore.isPlaying, levels: playbackStore.audioLevels)
+            } else if let trackNumber = displayTrackNumber {
                 Text(trackNumber)
                     .font(.headline.monospacedDigit())
                     .foregroundStyle(.secondary)
@@ -2182,6 +2091,7 @@ private struct AlbumTrackRow: View {
             }
         }
         .padding(.vertical, displayTrackNumber == nil ? 0 : 4)
+        .playbackQueueProgress(for: item.id)
     }
 
     private var displayTrackNumber: String? {
@@ -2277,14 +2187,14 @@ struct AlbumAboutPanel: View {
                 }
                 .buttonStyle(.plain)
 
-                editableMetadataRow("Album", value: representativeOverride?.album ?? name)
+                editableMetadataRow(String(localized: "Album"), value: representativeOverride?.album ?? name)
                 editableMetadataRow("Artist", value: representativeOverride?.artist ?? vm.metadata.subtitleArtist)
-                editableMetadataRow("Genre", value: representativeOverride?.genre ?? vm.metadata.genre)
-                editableMetadataRow("Year", value: representativeOverride?.year ?? vm.metadata.subtitleYear)
+                editableMetadataRow(String(localized: "Genre"), value: representativeOverride?.genre ?? vm.metadata.genre)
+                editableMetadataRow(String(localized: "Year"), value: representativeOverride?.year ?? vm.metadata.subtitleYear)
             }
             Section("Properties") {
-                CompatibleLabeledContent("Tracks", value: "\(vm.metadata.songCountInAlbumFolders)")
-                CompatibleLabeledContent("Credits", value: vm.metadata.credits)
+                CompatibleLabeledContent(String(localized: "Tracks"), value: "\(vm.metadata.songCountInAlbumFolders)")
+                CompatibleLabeledContent(String(localized: "Credits"), value: vm.metadata.credits)
             }
         }
         .navigationTitle("About \(name)")
@@ -2303,7 +2213,7 @@ struct AlbumAboutPanel: View {
             )
         }
         .sheet(item: $pendingCoverCrop) { pending in
-            SquareImageCropSheet(
+            CoverImageCropSheet(
                 image: pending.image,
                 onCancel: { pendingCoverCrop = nil },
                 onUse: { image in
@@ -2431,7 +2341,7 @@ struct ArtistPanel: View {
                 Section("All Music") {
                     if vm.filtered.isEmpty {
                         CompatibleContentUnavailableView(
-                            vm.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "No Music" : "No Results",
+                            vm.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? String(localized: "No Music") : String(localized: "No Results"),
                             systemImage: "music.note"
                         )
                     } else {
@@ -2449,11 +2359,11 @@ struct ArtistPanel: View {
             )
             .textInputAutocapitalization(.never)
             .disableAutocorrection(true)
-            .navigationTitle(name)
+            .navigationTitle(localizedMediaPlaceholder(name))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 CircularTrailingToolbarItem {
-                    ToolbarGlassMenu(accessibilityLabel: "Artist Options") {
+                    ToolbarGlassMenu(accessibilityLabel: String(localized: "Artist Options")) {
                         Button("About Artist", systemImage: "person") {
                             router.present(.artistAbout(name: name))
                         }
@@ -2483,7 +2393,7 @@ struct ArtistPanel: View {
 
     private var artistHeader: some View {
         ArtistHeaderArtwork(
-            subtitle: "\(vm.albums.count) release\(vm.albums.count == 1 ? "" : "s") • \(vm.songs.count) song\(vm.songs.count == 1 ? "" : "s")",
+            subtitle: String(localized: "\(vm.albums.count) releases") + " • " + String(localized: "\(vm.songs.count) songs"),
             image: vm.artistImage
         )
     }
@@ -2552,7 +2462,7 @@ private struct ArtistAlbumCard: View {
             }
 
             VStack(alignment: .leading, spacing: 6) {
-                Text(album.name)
+                Text(localizedMediaPlaceholder(album.name))
                     .font(.headline)
                     .foregroundStyle(.primary)
                     .lineLimit(nil)
@@ -2580,7 +2490,7 @@ private struct ArtistAlbumCard: View {
     private var detailText: String {
         var parts = [
             album.releaseKind.rawValue,
-            "\(album.songs.count) song\(album.songs.count == 1 ? "" : "s")"
+            String(localized: "\(album.songs.count) songs")
         ]
         if let duration = album.totalDurationMs {
             parts.append(Self.formattedDuration(duration))
@@ -2640,18 +2550,18 @@ struct ArtistAboutPanel: View {
                 .buttonStyle(.plain)
 
                 editableMetadataRow("Artist", value: representativeOverride?.artist ?? name)
-                editableMetadataRow("Genre", value: representativeOverride?.genre ?? commonGenre)
-                editableMetadataRow("Year", value: representativeOverride?.year ?? commonYear)
+                editableMetadataRow(String(localized: "Genre"), value: representativeOverride?.genre ?? commonGenre)
+                editableMetadataRow(String(localized: "Year"), value: representativeOverride?.year ?? commonYear)
             }
             Section("Properties") {
                 CompatibleLabeledContent("Songs", value: "\(vm.songs.count)")
-                CompatibleLabeledContent("Releases", value: "\(vm.albums.count)")
+                CompatibleLabeledContent(String(localized: "Releases"), value: "\(vm.albums.count)")
             }
         }
         .navigationTitle("About Artist")
         .sheet(isPresented: $showEditMetadata, onDismiss: loadOverride) {
             EditMetadataView(
-                title: "Edit Artist",
+                title: String(localized: "Edit Artist"),
                 filePaths: filePaths,
                 currentOverride: representativeOverride,
                 defaultValues: [
@@ -2663,7 +2573,7 @@ struct ArtistAboutPanel: View {
             )
         }
         .sheet(item: $pendingCoverCrop) { pending in
-            SquareImageCropSheet(
+            CoverImageCropSheet(
                 image: pending.image,
                 onCancel: { pendingCoverCrop = nil },
                 onUse: { image in
@@ -2724,15 +2634,15 @@ struct ArtistAboutPanel: View {
 
     private var artistPhotoSubtitle: String {
         if cachedArtistImage != nil {
-            return "Using artist profile image"
+            return String(localized: "Using artist profile image")
         }
         if canFetchOnlineArtistPhoto {
-            return "Fetch from allowed online sources or choose image"
+            return String(localized: "Fetch from allowed online sources or choose image")
         }
         if container.settingsStore.appCanConnectToInternet {
-            return "Choose image manually"
+            return String(localized: "Choose image manually")
         }
-        return "Choose image or enable internet access"
+        return String(localized: "Choose image or enable internet access")
     }
 
     private var canFetchOnlineArtistPhoto: Bool {
@@ -2763,17 +2673,17 @@ struct ArtistAboutPanel: View {
 
     private func fetchOnlineArtistImage() async {
         guard container.settingsStore.appCanConnectToInternet else {
-            errorMessage = "Internet access is off."
+            errorMessage = String(localized: "Internet access is off.")
             showError = true
             return
         }
         guard ArtistProfileLookupPolicy.canFetchOnlineImage(for: name) else {
-            errorMessage = "Online artist-photo lookup is skipped for Unknown Artist."
+            errorMessage = String(localized: "Online artist-photo lookup is skipped for Unknown Artist.")
             showError = true
             return
         }
         guard let image = await ArtistProfileImageLoader.shared.image(for: name, canFetchOnline: true) else {
-            errorMessage = "No usable artist photo was found from the allowed online sources."
+            errorMessage = String(localized: "No usable artist photo was found from the allowed online sources.")
             showError = true
             return
         }

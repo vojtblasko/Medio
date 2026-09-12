@@ -23,6 +23,7 @@ struct SettingsSnapshot: Codable, Equatable, Sendable {
     var priorityFolderPaths: [String?]
     var prioritySlotArtworkPaths: [String: String]
     var prioritySlotImageOnlyKeys: [String]
+    var favoritesPriorityFolderEnabled: Bool
     var favoritesHomeFolderEnabled: Bool
     var primaryPriorityFolderPath: String?
     var favoritesSortByRaw: Int
@@ -46,6 +47,7 @@ struct SettingsSnapshot: Codable, Equatable, Sendable {
         prioritySlotArtworkPaths: [String: String] = [:],
         prioritySlotImageOnlyKeys: [String] = [],
         favoritesHomeFolderEnabled: Bool = true,
+        favoritesPriorityFolderEnabled: Bool? = nil,
         primaryPriorityFolderPath: String? = nil,
         favoritesSortByRaw: Int = FavoritesSortBy.dateAdded.rawValue,
         favoritesSortAscending: Bool = false
@@ -66,6 +68,7 @@ struct SettingsSnapshot: Codable, Equatable, Sendable {
         self.priorityFolderPaths = priorityFolderPaths
         self.prioritySlotArtworkPaths = prioritySlotArtworkPaths
         self.prioritySlotImageOnlyKeys = prioritySlotImageOnlyKeys
+        self.favoritesPriorityFolderEnabled = favoritesPriorityFolderEnabled ?? favoritesHomeFolderEnabled
         self.favoritesHomeFolderEnabled = favoritesHomeFolderEnabled
         self.primaryPriorityFolderPath = primaryPriorityFolderPath
         self.favoritesSortByRaw = favoritesSortByRaw
@@ -89,6 +92,7 @@ struct SettingsSnapshot: Codable, Equatable, Sendable {
         case priorityFolderPaths
         case prioritySlotArtworkPaths
         case prioritySlotImageOnlyKeys
+        case favoritesPriorityFolderEnabled
         case favoritesHomeFolderEnabled
         case primaryPriorityFolderPath
         case favoritesSortByRaw
@@ -114,6 +118,7 @@ struct SettingsSnapshot: Codable, Equatable, Sendable {
         self.prioritySlotArtworkPaths = try container.decodeIfPresent([String: String].self, forKey: .prioritySlotArtworkPaths) ?? [:]
         self.prioritySlotImageOnlyKeys = try container.decodeIfPresent([String].self, forKey: .prioritySlotImageOnlyKeys) ?? []
         self.favoritesHomeFolderEnabled = try container.decodeIfPresent(Bool.self, forKey: .favoritesHomeFolderEnabled) ?? true
+        self.favoritesPriorityFolderEnabled = try container.decodeIfPresent(Bool.self, forKey: .favoritesPriorityFolderEnabled) ?? favoritesHomeFolderEnabled
         self.primaryPriorityFolderPath = try container.decodeIfPresent(String.self, forKey: .primaryPriorityFolderPath)
         self.favoritesSortByRaw = try container.decodeIfPresent(Int.self, forKey: .favoritesSortByRaw) ?? FavoritesSortBy.dateAdded.rawValue
         self.favoritesSortAscending = try container.decodeIfPresent(Bool.self, forKey: .favoritesSortAscending) ?? false
@@ -144,6 +149,7 @@ struct SettingsSnapshot: Codable, Equatable, Sendable {
             prioritySlotArtworkPaths: store.prioritySlotArtworkPaths,
             prioritySlotImageOnlyKeys: Array(store.prioritySlotImageOnlyKeys).sorted(),
             favoritesHomeFolderEnabled: store.favoritesHomeFolderEnabled,
+            favoritesPriorityFolderEnabled: store.favoritesPriorityFolderEnabled,
             primaryPriorityFolderPath: persistedPath(store.primaryPriorityFolderPath),
             favoritesSortByRaw: store.favoritesSortBy.rawValue,
             favoritesSortAscending: store.favoritesSortAscending
@@ -175,6 +181,7 @@ struct SettingsSnapshot: Codable, Equatable, Sendable {
         store.prioritySlotArtworkPaths = prioritySlotArtworkPaths
         store.prioritySlotImageOnlyKeys = Set(prioritySlotImageOnlyKeys)
         store.favoritesHomeFolderEnabled = favoritesHomeFolderEnabled
+        store.favoritesPriorityFolderEnabled = favoritesPriorityFolderEnabled
         store.primaryPriorityFolderPath = restoredPath(primaryPriorityFolderPath)
         store.favoritesSortBy = FavoritesSortBy(rawValue: favoritesSortByRaw) ?? .dateAdded
         store.favoritesSortAscending = favoritesSortAscending

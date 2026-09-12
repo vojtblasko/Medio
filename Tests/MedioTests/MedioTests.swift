@@ -3,6 +3,7 @@ import UIKit
 import SwiftUI
 import AVFoundation
 import UniformTypeIdentifiers
+import WebKit
 import SQLite3
 @testable import Medio
 
@@ -216,6 +217,17 @@ final class AppRouterTests: XCTestCase {
         XCTAssertTrue(router.sheetPath.isEmpty)
 
         router.dismissSheet()
+        XCTAssertNil(router.sheet)
+    }
+
+    func testNowPlayingOpensAboveThePageAndKeepsItsNavigationPath() {
+        let router = AppRouter()
+        router.push(.folder(path: "/music"))
+        router.push(.nowPlaying)
+        XCTAssertEqual(router.pushPath, [.folder(path: "/music")])
+        XCTAssertEqual(router.sheet, .nowPlaying)
+        router.dismissSheet()
+        XCTAssertEqual(router.pushPath, [.folder(path: "/music")])
         XCTAssertNil(router.sheet)
     }
 
@@ -583,6 +595,89 @@ final class PlaybackAndViewModelTests: XCTestCase {
         XCTAssertEqual(vm.queue.map(\.id), ["b.mp3", "c.mp3", "a.mp3"])
         XCTAssertEqual(vm.nowPlaying?.id, "b.mp3")
         XCTAssertEqual(vm.currentIndex, 0)
+    }
+
+    func testQueueDeletionPreservesOccurrencePositionAndPlayState() async {
+        let store = PlaybackStore()
+        let service = InMemoryPlaybackService(store: store)
+        let tracks = (0..<6).map { MediaItem(id: "\($0 % 3).mp3", title: "Occurrence \($0)", isVideo: false) }
+        await service.setQueue(tracks, startAt: 4)
+        await service.play()
+        await service.seek(toMs: 42_000)
+        let vm = QueueViewModel(playbackStore: store, playbackService: service)
+        await vm.remove(at: IndexSet([0, 1]))
+        XCTAssertEqual(vm.nowPlaying, tracks[4])
+        XCTAssertEqual(vm.currentIndex, 2)
+        XCTAssertEqual(store.playback.positionMs, 42_000)
+        XCTAssertTrue(store.isPlaying)
+        await vm.move(from: IndexSet(integer: 2), to: 0)
+        XCTAssertEqual(vm.nowPlaying, tracks[4])
+        XCTAssertEqual(vm.currentIndex, 0)
+        XCTAssertEqual(store.playback.positionMs, 42_000)
+        await service.pause()
+        await vm.remove(at: IndexSet(integer: 3))
+        XCTAssertFalse(store.isPlaying)
+        XCTAssertEqual(store.playback.positionMs, 42_000)
+    }
+
+    func testRemovingCurrentQueueEntryChoosesNextSurvivorThenClears() async {
+        let store = PlaybackStore()
+        let service = InMemoryPlaybackService(store: store)
+        let tracks = (0..<6).map { MediaItem(id: "\($0).mp3", title: "\($0)", isVideo: false) }
+        await service.setQueue(tracks, startAt: 3)
+        await service.play()
+        await service.seek(toMs: 42_000)
+        let vm = QueueViewModel(playbackStore: store, playbackService: service)
+        await vm.remove(at: IndexSet([0, 3, 4]))
+        XCTAssertEqual(vm.nowPlaying, tracks[5])
+        XCTAssertEqual(vm.currentIndex, 2)
+        XCTAssertTrue(store.isPlaying)
+        XCTAssertEqual(store.playback.positionMs, 0)
+        await vm.remove(at: IndexSet(integersIn: 0..<3))
+        XCTAssertTrue(vm.queue.isEmpty)
+        XCTAssertNil(vm.nowPlaying)
+        XCTAssertFalse(store.isPlaying)
+    }
+
+    func testAudioQueueEditRetainsAVPlayerItemAndDoesNotReshuffle() async throws {
+        let service = AudioPlaybackService()
+        var latest: PlaybackUpdate?
+        let observation = service.playbackUpdates.sink { latest = $0 }
+        let tracks = (0..<8).map { MediaItem(id: "/tmp/queue-edit-\($0).mp3", title: "\($0)", isVideo: false) }
+        await service.setQueue(tracks, startAt: 4)
+        let active = try XCTUnwrap(service.videoPlayer.currentItem)
+        let edited = Array(tracks.dropFirst(2))
+        await service.updateQueue(edited, currentIndex: 2, preservingCurrentItem: true)
+        XCTAssertTrue(active === service.videoPlayer.currentItem)
+        XCTAssertEqual(latest?.item, tracks[4])
+        XCTAssertEqual(latest?.queueIndex, 2)
+        await service.toggleShuffle()
+        let shuffled = try XCTUnwrap(latest?.queue)
+        let index = try XCTUnwrap(latest?.queueIndex)
+        let shuffledActive = service.videoPlayer.currentItem
+        await service.updateQueue(shuffled, currentIndex: index, preservingCurrentItem: true)
+        XCTAssertEqual(latest?.queue, shuffled)
+        XCTAssertTrue(latest?.shuffleEnabled == true)
+        XCTAssertTrue(shuffledActive === service.videoPlayer.currentItem)
+        await service.toggleShuffle()
+        XCTAssertEqual(latest?.queue, edited, "Shuffle Off must retain the pre-shuffle order after edits")
+        XCTAssertEqual(latest?.item, tracks[4])
+        XCTAssertLessThanOrEqual(service.bufferedPlayerItemCount, 3)
+        await service.updateQueue([], currentIndex: 0, preservingCurrentItem: false)
+        XCTAssertNil(latest?.item)
+        XCTAssertTrue(latest?.queue.isEmpty == true)
+        XCTAssertFalse(latest?.isPlaying == true)
+        withExtendedLifetime(observation) {}
+    }
+
+    func testPastQueueTracksExcludeCurrentAndUpcomingDuplicates() async {
+        let store = PlaybackStore()
+        let service = InMemoryPlaybackService(store: store)
+        let tracks = ["a", "b", "a", "c"].map { MediaItem(id: $0, title: $0, isVideo: false) }
+        await service.setQueue(tracks, startAt: 2)
+        XCTAssertEqual(store.pastQueueItemIDs, ["b"])
+        await service.skipNext()
+        XCTAssertEqual(store.pastQueueItemIDs, ["a", "b"])
     }
 
     func testNowPlayingViewModelReflectsStore() async {
@@ -956,7 +1051,7 @@ final class LibraryAndFilteringTests: XCTestCase {
         XCTAssertFalse(vm.filteredItems.contains { MedioShadowFolder.isFavorites($0.id) })
     }
 
-    func testRemovedFavoritesHomeFolderUnlocksPrimaryPrioritySlot() {
+    func testUnpinningFavoritesUnlocksPrimaryPrioritySlot() {
         let suiteName = "MedioTests.primaryPriority.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defaults.removePersistentDomain(forName: suiteName)
@@ -968,7 +1063,7 @@ final class LibraryAndFilteringTests: XCTestCase {
         let folder = FileInfo(id: "/music", isDirectory: true, displayName: "Music", author: nil, album: nil)
         store.homeItems = [folder]
         store.allItems = [folder]
-        settings.favoritesHomeFolderEnabled = false
+        settings.favoritesPriorityFolderEnabled = false
         settings.priorityFoldersCount = 2
         settings.assignPriorityFolder(folder.id, to: -1)
 
@@ -2961,6 +3056,24 @@ final class SystemUIPresenterTests: XCTestCase {
         }
     }
 
+    func testDocumentSelectionDeliveredJustAfterDismissalIsNotCancelled() async throws {
+        let presenter = SystemUIPresenter()
+        let service = MedioDocumentPickingService(presenter: presenter)
+        let request = Task { try await service.pickFile(contentTypes: [.image], allowsMultipleSelection: false) }
+        await Task.yield()
+        let url = URL(fileURLWithPath: "/tmp/selected-cover.png")
+        presenter.didDismiss()
+        presenter.complete(.success(.documents([url])))
+        let result = try await request.value
+        XCTAssertEqual(result, [url])
+        let next = Task { try await service.pickFile(contentTypes: [.image], allowsMultipleSelection: false) }
+        await Task.yield()
+        presenter.complete(.success(.documents([url])))
+        presenter.didDismiss()
+        let nextResult = try await next.value
+        XCTAssertEqual(nextResult, [url], "The previous dismissal must not cancel a new request")
+    }
+
     func testConcurrentPickerRequestIsRejectedWithoutLosingFirstRequest() async throws {
         let presenter = SystemUIPresenter()
         let service = MedioPhotoPickingService(presenter: presenter)
@@ -3017,6 +3130,41 @@ final class MediaArtworkRenderingTests: XCTestCase {
         }
     }
 
+    func testSmallCoversFillEveryCornerForPortraitAndLandscapeImages() throws {
+        guard #available(iOS 16.0, *) else { throw XCTSkip("ImageRenderer requires iOS 16") }
+        for size in [CGSize(width: 240, height: 80), CGSize(width: 80, height: 240)] {
+            let image = UIGraphicsImageRenderer(size: size).image { context in
+                UIColor.red.setFill(); context.fill(CGRect(origin: .zero, size: size))
+            }
+            let bytes = try pixels(of: MediaCoverArtwork(image: image, contentMode: .fill).clipped(), width: 100, height: 100)
+            for (x, y) in [(1, 1), (98, 1), (1, 98), (98, 98)] {
+                XCTAssertGreaterThan(bytes[(y * 100 + x) * 4], 240)
+                XCTAssertGreaterThan(bytes[(y * 100 + x) * 4 + 3], 240)
+            }
+        }
+    }
+
+    func testPriorityCropMatchesAdaptiveCardAndNeverExposesEmptyEdges() {
+        for compact in [false, true] {
+            for width: CGFloat in [320, 390, 768, 1024] {
+                let ratio = HomePriorityLayoutMetrics.cardAspectRatio(contentWidth: width, compact: compact)
+                XCTAssertGreaterThan(ratio, 1)
+                let viewport = CGSize(width: 300, height: 300 / ratio)
+                for source in [CGSize(width: 90, height: 240), CGSize(width: 360, height: 90), CGSize(width: 100, height: 100)] {
+                    for zoom: CGFloat in [1, 2, 5] {
+                        let rect = CoverCropGeometry.imageRect(source: source, viewport: viewport, zoom: zoom,
+                                                              offset: CGSize(width: 10_000, height: -10_000))
+                        XCTAssertLessThanOrEqual(rect.minX, 0.001)
+                        XCTAssertLessThanOrEqual(rect.minY, 0.001)
+                        XCTAssertGreaterThanOrEqual(rect.maxX, viewport.width - 0.001)
+                        XCTAssertGreaterThanOrEqual(rect.maxY, viewport.height - 0.001)
+                        XCTAssertEqual(rect.width / rect.height, source.width / source.height, accuracy: 0.001)
+                    }
+                }
+            }
+        }
+    }
+
     func testSevenSpectrumBarsAreMirroredAroundTheirCentre() throws {
         guard #available(iOS 16.0, *) else { throw XCTSkip("ImageRenderer requires iOS 16") }
         let view = NowPlayingAudioVisualizer(
@@ -3037,4 +3185,295 @@ final class MediaArtworkRenderingTests: XCTestCase {
         }
         XCTAssertEqual(barCount, 7)
     }
+}
+
+@MainActor
+final class BrowsingPreferencesRegressionTests: XCTestCase {
+    func testFavoritesPreferencesPersistIndependentlyAndMigrateLegacySnapshots() async throws {
+        let name = "MedioTests.favoriteFlags.\(UUID())"
+        let defaults = UserDefaults(suiteName: name)!
+        defer { defaults.removePersistentDomain(forName: name) }
+        let settings = SettingsStore(defaults: defaults)
+        settings.favoritesHomeFolderEnabled = true
+        settings.favoritesPriorityFolderEnabled = false
+        await settings.flushPersistence()
+        let reloaded = SettingsStore(defaults: defaults)
+        XCTAssertTrue(reloaded.favoritesHomeFolderEnabled)
+        XCTAssertFalse(reloaded.favoritesPriorityFolderEnabled)
+        let encoded = try JSONEncoder().encode(SettingsSnapshot.fromStore(settings))
+        var legacyValues = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        legacyValues.removeValue(forKey: "favoritesPriorityFolderEnabled")
+        legacyValues["favoritesHomeFolderEnabled"] = false
+        let legacy = try JSONDecoder().decode(SettingsSnapshot.self, from: JSONSerialization.data(withJSONObject: legacyValues))
+        XCTAssertFalse(legacy.favoritesPriorityFolderEnabled)
+    }
+
+    func testNativeSortMenuTracksSelectionAndDirectionWithoutLosingViewIcon() {
+        let settings = SettingsStore(defaults: UserDefaults(suiteName: "MedioTests.menu.\(UUID())")!)
+        settings.selectSort(.name)
+        func menu() -> UIMenu {
+            BrowserOptionsMenu.sorts(HomeSortBy.menuCases, selected: settings.homeSortBy,
+                ascending: settings.homeSortAscending, title: { $0.title }, select: settings.selectSort)
+        }
+        let selected = menu().children.compactMap { $0 as? UIAction }.filter { $0.state == .on }
+        XCTAssertEqual(selected.count, 1)
+        XCTAssertEqual(selected.first?.title, "Name")
+        XCTAssertEqual(selected.first?.subtitle, "Ascending")
+        settings.selectSort(.name)
+        XCTAssertEqual(menu().children.compactMap { $0 as? UIAction }.first { $0.state == .on }?.subtitle, "Descending")
+        let views = BrowserOptionsMenu.views(selected: .icons) { _ in }
+        let icons = views.children.first as? UIAction
+        XCTAssertEqual(icons?.state, .on)
+        XCTAssertNotNil(icons?.image)
+    }
+
+    func testOnlineFeatureGatesAndUsagePersistAndResetIndependently() {
+        let name = "MedioTests.online.\(UUID())"
+        let defaults = UserDefaults(suiteName: name)!
+        defer { defaults.removePersistentDomain(forName: name) }
+        let store = OnlineAccessStore(defaults: defaults)
+        XCTAssertFalse(store.allows(.imageDownloads))
+        store.masterEnabled = true
+        store.setEnabled(false, for: .imageDownloads)
+        XCTAssertFalse(store.allows(.imageDownloads))
+        XCTAssertTrue(store.allows(.imageMetadata))
+        store.record(bytes: 1234, for: .artistLookup)
+        store.record(bytes: 4321, for: .imageMetadata)
+        let restored = OnlineAccessStore(defaults: defaults)
+        XCTAssertEqual(restored.transferredBytes[OnlineFeature.artistLookup.rawValue], 1234)
+        XCTAssertEqual(restored.transferredBytes[OnlineFeature.imageMetadata.rawValue], 4321)
+        XCTAssertFalse(restored.isEnabled(.imageDownloads))
+        restored.resetUsage()
+        XCTAssertTrue(restored.transferredBytes.isEmpty)
+        XCTAssertFalse(restored.isEnabled(.imageDownloads))
+    }
+}
+
+private final class ArtistRequestProbe: URLProtocol, @unchecked Sendable {
+    private static let lock = NSLock()
+    nonisolated(unsafe) private static var recordedURLs: [URL] = []
+    static func reset() { lock.lock(); defer { lock.unlock() }; recordedURLs = [] }
+    static func urls() -> [URL] { lock.lock(); defer { lock.unlock() }; return recordedURLs }
+    override class func canInit(with request: URLRequest) -> Bool { true }
+    override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
+    override func startLoading() {
+        guard let url = request.url else { return }
+        Self.lock.lock(); Self.recordedURLs.append(url); Self.lock.unlock()
+        let response = HTTPURLResponse(url: url, statusCode: 200, httpVersion: "HTTP/1.1", headerFields: nil)!
+        client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: Data("{\"artists\":[],\"search\":[],\"query\":{\"pages\":{}}}".utf8))
+        client?.urlProtocolDidFinishLoading(self)
+    }
+    override func stopLoading() {}
+}
+
+final class OnlineRequestGateTests: XCTestCase {
+    func testDisabledFeaturesNeverStartNetworkRequests() async {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [ArtistRequestProbe.self]
+        let session = URLSession(configuration: configuration)
+        defer { session.invalidateAndCancel(); ArtistRequestProbe.reset() }
+        ArtistRequestProbe.reset()
+        let blocked = WikimediaPublicDomainArtistImageRepository(session: session, requestAllowed: { _ in false })
+        _ = await blocked.fetchImage(for: "Test Artist")
+        XCTAssertTrue(ArtistRequestProbe.urls().isEmpty)
+        let selective = WikimediaPublicDomainArtistImageRepository(session: session, requestAllowed: { $0 == .artistLookup })
+        _ = await selective.fetchImage(for: "Test Artist")
+        XCTAssertFalse(ArtistRequestProbe.urls().isEmpty)
+        XCTAssertTrue(ArtistRequestProbe.urls().allSatisfy { $0.host == "musicbrainz.org" })
+    }
+}
+
+final class LocalAudioSharingTests: XCTestCase {
+    func testSafariByteRanges() {
+        XCTAssertEqual(AudioByteRange.parse(nil, size: 100), AudioByteRange(start: 0, end: 99))
+        XCTAssertEqual(AudioByteRange.parse("bytes=0-1", size: 100), AudioByteRange(start: 0, end: 1))
+        XCTAssertEqual(AudioByteRange.parse("bytes=25-", size: 100), AudioByteRange(start: 25, end: 99))
+        XCTAssertEqual(AudioByteRange.parse("bytes=-20", size: 100), AudioByteRange(start: 80, end: 99))
+        XCTAssertEqual(AudioByteRange.parse("bytes=20-999", size: 100), AudioByteRange(start: 20, end: 99))
+        for value in ["bytes=100-", "bytes=3-2", "bytes=-0", "bytes=0-1,4-5", "bytes=hello", "items=0-1", "bytes=99999999999999999999-"] {
+            XCTAssertNil(AudioByteRange.parse(value, size: 100), value)
+        }
+        XCTAssertNil(AudioByteRange.parse(nil, size: 0))
+    }
+
+    func testRequestParserRejectsSmugglingAndOversizedBodies() {
+        for header in ["GET / HTTP/1.1\r\nContent-Length: 1\r\nContent-Length: 2", "POST /join HTTP/1.1\r\nContent-Length: 513", "POST /join HTTP/1.1\r\nTransfer-Encoding: chunked", "POST /join HTTP/1.1\r\nContent-Length: -1", "POST /join HTTP/1.1\r\nContent-Length: nope", "bad"] {
+            XCTAssertNil(LocalAudioHTTPRequest(header: Data(header.utf8)), header)
+        }
+        let request = LocalAudioHTTPRequest(header: Data("GET /state HTTP/1.1\r\nAuthorization: Bearer abc\r\nHost: localhost".utf8))
+        XCTAssertEqual(request?.headers["authorization"], "Bearer abc")
+        XCTAssertEqual(request?.contentLength, 0)
+    }
+
+    func testOnlyRegularFilesInsideDocumentsAreEligible() throws {
+        let root = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: root) }
+        let documents = root.appendingPathComponent("Documents")
+        try FileManager.default.createDirectory(at: documents, withIntermediateDirectories: true)
+        let allowed = documents.appendingPathComponent("track.mp3")
+        let outside = root.appendingPathComponent("secret.mp3")
+        try Data([1, 2]).write(to: allowed)
+        try Data([3, 4]).write(to: outside)
+        let link = documents.appendingPathComponent("escape.mp3")
+        try FileManager.default.createSymbolicLink(at: link, withDestinationURL: outside)
+        XCTAssertNotNil(SharedAudioTrack.validatedURL(path: allowed.path, documents: documents))
+        XCTAssertNil(SharedAudioTrack.validatedURL(path: outside.path, documents: documents))
+        XCTAssertNil(SharedAudioTrack.validatedURL(path: documents.path, documents: documents))
+        XCTAssertNil(SharedAudioTrack.validatedURL(path: link.path, documents: documents))
+    }
+
+    func testHTTPAuthenticationRangesTrackChangesAndShutdown() async throws {
+        let port = expectation(description: "Listener starts")
+        let portBox = SharingTestPort()
+        let server = LocalAudioHTTPServer(code: "123456", page: "receiver", restrictToWiFi: false) { event in
+            if case .ready(let number) = event { portBox.set(number); port.fulfill() }
+        }
+        server.start()
+        defer { server.stop() }
+        await fulfillment(of: [port], timeout: 5)
+        let base = try XCTUnwrap(portBox.get()).description
+        let session = URLSession(configuration: .ephemeral)
+        defer { session.invalidateAndCancel() }
+        func request(_ path: String, method: String = "GET", body: String? = nil, headers: [String: String] = [:]) async throws -> (Data, HTTPURLResponse) {
+            var request = URLRequest(url: URL(string: "http://127.0.0.1:\(base)\(path)")!)
+            request.httpMethod = method; request.httpBody = body.map { Data($0.utf8) }; request.timeoutInterval = 3
+            for (name, value) in headers { request.setValue(value, forHTTPHeaderField: name) }
+            let (data, response) = try await session.data(for: request)
+            return (data, try XCTUnwrap(response as? HTTPURLResponse))
+        }
+        let root = try await request("/")
+        XCTAssertEqual(root.0, Data("receiver".utf8))
+        XCTAssertEqual(root.1.value(forHTTPHeaderField: "Cache-Control"), "no-store")
+        let denied = try await request("/state")
+        XCTAssertEqual(denied.1.statusCode, 403)
+        let wrong = try await request("/join", method: "POST", body: "000000")
+        XCTAssertEqual(wrong.1.statusCode, 403)
+        let joined = try await request("/join", method: "POST", body: "123456")
+        let token = try XCTUnwrap((JSONSerialization.jsonObject(with: joined.0) as? [String: String])?["token"])
+        let auth = ["Authorization": "Bearer " + token]
+        let file = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString)
+        defer { try? FileManager.default.removeItem(at: file) }
+        try Data(0..<100).write(to: file)
+        let track = SharedAudioTrack(id: "first", url: file, mimeType: "audio/mpeg", size: 100)
+        server.update(track: track, state: SharedAudioState(track: "first", title: "A <title>", position: 12.5, playing: true))
+        let state = try await request("/state", headers: auth)
+        XCTAssertEqual(try JSONDecoder().decode(SharedAudioState.self, from: state.0).position, 12.5)
+        let partial = try await request("/audio/first?token=\(token)", headers: ["Range": "bytes=8-15"])
+        XCTAssertEqual(partial.1.statusCode, 206)
+        XCTAssertEqual(partial.0, Data(8..<16))
+        XCTAssertEqual(partial.1.value(forHTTPHeaderField: "Content-Range"), "bytes 8-15/100")
+        let head = try await request("/audio/first", method: "HEAD", headers: auth)
+        XCTAssertTrue(head.0.isEmpty)
+        XCTAssertEqual(head.1.value(forHTTPHeaderField: "Content-Length"), "100")
+        let invalid = try await request("/audio/first?token=\(token)", headers: ["Range": "bytes=1000-"])
+        XCTAssertEqual(invalid.1.statusCode, 416)
+        let traversal = try await request("/audio/..%2Fsecret?token=\(token)")
+        XCTAssertEqual(traversal.1.statusCode, 404)
+        server.update(track: nil, state: SharedAudioState())
+        let revokedTrack = try await request("/audio/first", headers: auth)
+        XCTAssertEqual(revokedTrack.1.statusCode, 404)
+        server.stop()
+        do { _ = try await request("/state", headers: auth); XCTFail("Stopped session must not respond") } catch { }
+    }
+
+    func testFourLanguagesAreBundledAndHaveRealTranslations() throws {
+        let expected = ["en": "Home", "cs": "Domů", "de": "Start", "fr": "Accueil"]
+        for (language, home) in expected {
+            let path = try XCTUnwrap(Bundle.main.path(forResource: language, ofType: "lproj"))
+            let bundle = try XCTUnwrap(Bundle(path: path))
+            XCTAssertEqual(bundle.localizedString(forKey: "Home", value: nil, table: nil), home)
+            for key in ["Settings", "Share Audio", "Ascending", "Descending", "App Language"] {
+                let value = bundle.localizedString(forKey: key, value: "MISSING", table: nil)
+                XCTAssertNotEqual(value, "MISSING", "\(language): \(key)")
+                if language != "en" { XCTAssertNotEqual(value, key, "\(language): \(key)") }
+            }
+            XCTAssertNotEqual(bundle.localizedString(forKey: "NSLocalNetworkUsageDescription", value: "MISSING", table: "InfoPlist"), "MISSING")
+        }
+    }
+}
+
+private final class SharingTestPort: @unchecked Sendable {
+    private let lock = NSLock()
+    private var port: UInt16?
+    func set(_ value: UInt16) { lock.lock(); defer { lock.unlock() }; port = value }
+    func get() -> UInt16? { lock.lock(); defer { lock.unlock() }; return port }
+}
+
+// Exercise the actual receiver JavaScript against the native HTTP server in WebKit.
+// Autoplay policy is disabled only in this test; the production page requires Listen.
+@MainActor
+final class AudioSharingReceiverTests: XCTestCase {
+    func testBrowserReceivesAudioFollowsPauseAndStopsWithHost() async throws {
+        let port = expectation(description: "Browser test server starts")
+        let box = SharingTestPort()
+        let server = LocalAudioHTTPServer(code: "654321", page: SharingReceiverPage.html, restrictToWiFi: false) { event in
+            if case .ready(let value) = event { box.set(value); port.fulfill() }
+        }
+        server.start()
+        defer { server.stop() }
+        await fulfillment(of: [port], timeout: 5)
+        let documents = try XCTUnwrap(FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first)
+        let file = documents.appendingPathComponent("receiver-test-\(UUID().uuidString).wav")
+        defer { try? FileManager.default.removeItem(at: file) }
+        // Three seconds of silence, PCM mono, 8 kHz / 16-bit. No external media.
+        var wav = Data()
+        func ascii(_ value: String) { wav.append(contentsOf: value.utf8) }
+        func word(_ value: UInt16) { var value = value.littleEndian; withUnsafeBytes(of: &value) { wav.append(contentsOf: $0) } }
+        func dword(_ value: UInt32) { var value = value.littleEndian; withUnsafeBytes(of: &value) { wav.append(contentsOf: $0) } }
+        ascii("RIFF"); dword(48036); ascii("WAVEfmt "); dword(16); word(1); word(1)
+        dword(8000); dword(16000); word(2); word(16); ascii("data"); dword(48000)
+        wav.append(Data(repeating: 0, count: 48000)); try wav.write(to: file)
+        let item = MediaItem(id: file.path, title: "Receiver <test>", artist: "Local", isVideo: false)
+        let prepared = await SharedAudioTrack.prepare(item: item)
+        let track = try XCTUnwrap(prepared)
+        server.update(track: track, state: SharedAudioState(track: track.id, title: item.title, position: 0, playing: true))
+        let configuration = WKWebViewConfiguration()
+        configuration.mediaTypesRequiringUserActionForPlayback = []
+        configuration.websiteDataStore = .nonPersistent()
+        let web = WKWebView(frame: CGRect(x: 0, y: 0, width: 390, height: 700), configuration: configuration)
+        let window = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.flatMap(\.windows).first { $0.isKeyWindow }
+        window?.addSubview(web)
+        defer { web.removeFromSuperview(); web.stopLoading() }
+        let loaded = expectation(description: "Receiver page loads")
+        let delegate = SharingNavigationDelegate(loaded: loaded)
+        web.navigationDelegate = delegate
+        web.load(URLRequest(url: URL(string: "http://127.0.0.1:\(try XCTUnwrap(box.get()))/")!))
+        await fulfillment(of: [loaded], timeout: 8)
+        try await evaluate(web, script: "document.getElementById('code').value='654321';document.getElementById('join').requestSubmit();true")
+        try await waitFor(web, expression: "!document.getElementById('player').hidden && document.getElementById('audio').src.includes('/audio/')")
+        try await evaluate(web, script: "document.getElementById('audio').volume=0;document.getElementById('listen').click();true")
+        try await waitFor(web, expression: "!document.getElementById('audio').paused && document.getElementById('audio').currentTime > 0")
+        try await waitFor(web, expression: "document.getElementById('title').textContent === 'Receiver <test>' && !document.querySelector('#title test')")
+        server.update(track: track, state: SharedAudioState(track: track.id, title: item.title, position: 1, playing: false))
+        try await waitFor(web, expression: "document.getElementById('audio').paused")
+        server.stop()
+        try await waitFor(web, expression: "document.getElementById('player').hidden", timeout: 20)
+    }
+
+    @discardableResult
+    private func evaluate(_ web: WKWebView, script: String) async throws -> Bool {
+        try await withCheckedThrowingContinuation { continuation in
+            web.evaluateJavaScript(script) { result, error in
+                if let error { continuation.resume(throwing: error) }
+                else { continuation.resume(returning: result as? Bool ?? false) }
+            }
+        }
+    }
+
+    private func waitFor(_ web: WKWebView, expression: String, timeout: TimeInterval = 8) async throws {
+        let deadline = Date().addingTimeInterval(timeout)
+        while Date() < deadline {
+            if try await evaluate(web, script: expression) { return }
+            try await Task.sleep(nanoseconds: 100_000_000)
+        }
+        XCTFail("Receiver condition timed out: \(expression)")
+    }
+}
+
+@MainActor
+private final class SharingNavigationDelegate: NSObject, WKNavigationDelegate {
+    let loaded: XCTestExpectation
+    init(loaded: XCTestExpectation) { self.loaded = loaded }
+    func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) { loaded.fulfill() }
 }

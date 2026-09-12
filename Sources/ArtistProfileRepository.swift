@@ -1,8 +1,75 @@
 import UIKit
 import Foundation
+import Combine
 import OSLog
 import CryptoKit
 import ImageIO
+
+enum OnlineFeature: String, CaseIterable, Identifiable, Sendable {
+    case artistLookup, imageMetadata, imageDownloads
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .artistLookup: String(localized: "Artist Lookup (MusicBrainz)")
+        case .imageMetadata: String(localized: "Image & License Lookup (Wikimedia)")
+        case .imageDownloads: String(localized: "Artist Image Downloads")
+        }
+    }
+}
+
+@MainActor
+final class OnlineAccessStore: ObservableObject {
+    static let shared = OnlineAccessStore()
+    @Published var masterEnabled = false
+    @Published private(set) var disabledFeatures: Set<String>
+    @Published private(set) var transferredBytes: [String: Int64]
+    @Published private(set) var trackingSince: Date
+    private let defaults: UserDefaults
+    private static let disabledKey = "medio.online.disabledFeatures"
+    private static let usageKey = "medio.online.transferredBytes"
+    private static let sinceKey = "medio.online.trackingSince"
+
+    init(defaults: UserDefaults = .standard) {
+        self.defaults = defaults
+        disabledFeatures = Set(defaults.stringArray(forKey: Self.disabledKey) ?? [])
+        let stored = defaults.dictionary(forKey: Self.usageKey) ?? [:]
+        transferredBytes = stored.compactMapValues { ($0 as? NSNumber)?.int64Value }
+        trackingSince = defaults.object(forKey: Self.sinceKey) as? Date ?? Date()
+        defaults.set(trackingSince, forKey: Self.sinceKey)
+    }
+
+    func isEnabled(_ feature: OnlineFeature) -> Bool { !disabledFeatures.contains(feature.rawValue) }
+    func allows(_ feature: OnlineFeature) -> Bool { masterEnabled && isEnabled(feature) }
+    func setEnabled(_ enabled: Bool, for feature: OnlineFeature) {
+        if enabled { disabledFeatures.remove(feature.rawValue) } else { disabledFeatures.insert(feature.rawValue) }
+        defaults.set(Array(disabledFeatures), forKey: Self.disabledKey)
+    }
+    func record(bytes: Int64, for feature: OnlineFeature) {
+        guard bytes > 0 else { return }
+        transferredBytes[feature.rawValue, default: 0] += bytes
+        defaults.set(transferredBytes, forKey: Self.usageKey)
+    }
+    func resetUsage() {
+        transferredBytes = [:]
+        trackingSince = Date()
+        defaults.removeObject(forKey: Self.usageKey)
+        defaults.set(trackingSince, forKey: Self.sinceKey)
+    }
+}
+
+/// Counts actual HTTP traffic (including retries/redirects), excluding local cache hits.
+private final class OnlineUsageTaskDelegate: NSObject, URLSessionTaskDelegate, @unchecked Sendable {
+    let feature: OnlineFeature
+    init(feature: OnlineFeature) { self.feature = feature }
+    func urlSession(_ session: URLSession, task: URLSessionTask, didFinishCollecting metrics: URLSessionTaskMetrics) {
+        let bytes = metrics.transactionMetrics.filter { $0.resourceFetchType == .networkLoad }.reduce(Int64(0)) { total, metric in
+            total + max(0, metric.countOfRequestHeaderBytesSent) + max(0, metric.countOfRequestBodyBytesSent)
+                + max(0, metric.countOfResponseHeaderBytesReceived) + max(0, metric.countOfResponseBodyBytesReceived)
+        }
+        let feature = feature
+        Task { @MainActor in OnlineAccessStore.shared.record(bytes: bytes, for: feature) }
+    }
+}
 
 protocol ArtistProfileRepository: Sendable {
     func getImage(for artistName: String) -> UIImage?
@@ -467,8 +534,13 @@ final class WikimediaPublicDomainArtistImageRepository: OnlineArtistImageReposit
     private let session: URLSession
     private let musicBrainzRateLimiter: MusicBrainzRateLimiter
     private let userAgent: String
+    private let requestAllowed: @Sendable (OnlineFeature) async -> Bool
 
-    init(session: URLSession? = nil, musicBrainzRateLimiter: MusicBrainzRateLimiter = .shared) {
+    init(session: URLSession? = nil, musicBrainzRateLimiter: MusicBrainzRateLimiter = .shared,
+         requestAllowed: @escaping @Sendable (OnlineFeature) async -> Bool = { feature in
+             await MainActor.run { OnlineAccessStore.shared.allows(feature) }
+         }) {
+        self.requestAllowed = requestAllowed
         self.session = session ?? Self.defaultSession
         self.musicBrainzRateLimiter = musicBrainzRateLimiter
         let bundleID = Bundle.main.bundleIdentifier ?? "com.medio.vojtblasko"
@@ -883,6 +955,7 @@ final class WikimediaPublicDomainArtistImageRepository: OnlineArtistImageReposit
         request.setValue(userAgent, forHTTPHeaderField: "User-Agent")
         let wantsJSON = url.path.hasSuffix("/w/api.php") || url.host == "api.wikimedia.org" || service == .musicBrainz
         request.setValue(wantsJSON ? "application/json" : "*/*", forHTTPHeaderField: "Accept")
+        let feature: OnlineFeature = service == .musicBrainz ? .artistLookup : (wantsJSON ? .imageMetadata : .imageDownloads)
 
         let summary = ArtistProfileDebugLog.urlSummary(url)
         var lastError: Error?
@@ -890,10 +963,12 @@ final class WikimediaPublicDomainArtistImageRepository: OnlineArtistImageReposit
             if service == .musicBrainz {
                 await musicBrainzRateLimiter.waitForTurn()
             }
+            try Task.checkCancellation()
+            guard await requestAllowed(feature) else { throw URLError(.notConnectedToInternet) }
             ArtistProfileDebugLog.write("request attempt=\(attempt + 1) service=\(service.debugName) url=\(summary)")
             DiagnosticsCenter.recordInternet("Request attempt \(attempt + 1) | service=\(service.debugName) | url=\(summary)")
             do {
-                let (data, response) = try await session.data(for: request)
+                let (data, response) = try await session.data(for: request, delegate: OnlineUsageTaskDelegate(feature: feature))
                 if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
                     ArtistProfileDebugLog.write("request http-failed attempt=\(attempt + 1) service=\(service.debugName) status=\(http.statusCode) url=\(summary)")
                     DiagnosticsCenter.recordInternet("HTTP failure | service=\(service.debugName) | status=\(http.statusCode) | url=\(summary)")

@@ -201,12 +201,7 @@ struct NowPlayingPanel: View {
                         .frame(height: 0)
 
                         VStack(spacing: 18) {
-                            nowPlayingControls
-                                .frame(maxWidth: .infinity)
-                                .frame(
-                                    minHeight: usesCompactRootChrome ? nil : mainSectionMinHeight,
-                                    alignment: .top
-                                )
+                            nowPlayingControls(minimumHeight: mainSectionMinHeight)
 
                             if !vm.lyricsLines.isEmpty {
                                 lyricsPreviewWindow
@@ -337,21 +332,15 @@ struct NowPlayingPanel: View {
         )
     }
 
-    @ViewBuilder
-    private var nowPlayingControls: some View {
-        if usesCompactRootChrome {
-            VStack(spacing: 18) {
-                mediaCover
-                nowPlayingDetails
-            }
-            .frame(maxWidth: .infinity, alignment: .top)
-        } else {
-            VStack(spacing: 24) {
-                mediaCover
-                nowPlayingDetails
-            }
-            .frame(maxWidth: .infinity)
+    private func nowPlayingControls(minimumHeight: CGFloat) -> some View {
+        VStack(spacing: 0) {
+            mediaCover
+            // Use the available space between artwork and controls. Short screens
+            // and larger text can still scroll instead of clipping the controls.
+            Spacer(minLength: usesCompactRootChrome ? 24 : 40)
+            nowPlayingDetails
         }
+        .frame(maxWidth: .infinity, minHeight: minimumHeight, alignment: .top)
     }
 
     private var nowPlayingDetails: some View {
@@ -363,7 +352,7 @@ struct NowPlayingPanel: View {
 
         return VStack(spacing: detailSpacing) {
             VStack(alignment: .leading, spacing: 6) {
-                Text(vm.item?.title ?? (vm.playback.isPlaying ? "" : "Not Playing"))
+                Text(vm.item?.title ?? (vm.playback.isPlaying ? "" : String(localized: "Not Playing")))
                     .font((usesCompactRootChrome ? Font.title3 : Font.title2).weight(.bold))
                     .foregroundStyle(.white)
                     .lineLimit(nil)
@@ -446,6 +435,9 @@ struct NowPlayingPanel: View {
                 NowPlayingSecondaryControlButton(systemName: vm.playback.repeatMode == .one ? "repeat.1" : "repeat", frameSize: secondaryButtonSize, isActive: vm.playback.repeatMode != .off) {
                     Task { await vm.toggleRepeat() }
                 }
+                .accessibilityLabel("Repeat")
+                .accessibilityValue(vm.playback.repeatMode == .one ? "Loop song" : (vm.playback.repeatMode == .all ? "Loop queue" : "Off"))
+                .accessibilityIdentifier("now_playing_repeat")
             }
             .frame(maxWidth: .infinity)
             .padding(.vertical, usesCompactRootChrome ? 2 : 6)
@@ -738,7 +730,7 @@ struct NowPlayingPanel: View {
         let existing = container.lyricsFileAssociationRepository.getAssociatedLyricsFile(forMediaPath: targetSongID)
         guard existing == nil else {
             await MainActor.run {
-                lyricDropInfoMessage = "Files support only one lyric file. Your file was moved to Documents/Medio/Lyrics."
+                lyricDropInfoMessage = String(localized: "Files support only one lyric file. Your file was moved to Documents/Medio/Lyrics.")
                 showLyricDropInfo = true
                 pendingMovedLyricURL = nil
                 pendingLyricTargetSongID = nil
@@ -1334,39 +1326,74 @@ private struct NowPlayingBackdrop: View {
         min(pullDistance / 180, 1)
     }
 
+    private var backgroundGradient: LinearGradient {
+        let progress: CGFloat = scrollProgress
+        let pull: CGFloat = pullProgress
+        let start = UnitPoint(x: 0.02 + progress * 0.34 - pull * 0.08, y: 0)
+        let end = UnitPoint(x: 1 - progress * 0.2 + pull * 0.05, y: 1 - progress * 0.28)
+        return LinearGradient(
+            colors: [first, second, Color.black.opacity(0.95)],
+            startPoint: start,
+            endPoint: end
+        )
+    }
+
+    private var colorWashGradient: some View {
+        let progress: CGFloat = scrollProgress
+        let pull: CGFloat = pullProgress
+        let start = UnitPoint(x: 0.1 + progress * 0.48, y: -0.08 + pull * 0.08)
+        let end = UnitPoint(x: 0.94 - progress * 0.28, y: 1.04)
+        let opacity: Double = 0.34 + Double(progress) * 0.26
+        let offset: CGFloat = -scrollDistance * 0.18 + pullDistance * 0.08
+        let scale: CGFloat = 1 + progress * 0.08 + pull * 0.04
+        return LinearGradient(
+            colors: [third.opacity(0.58), first.opacity(0.18), Color.clear],
+            startPoint: start,
+            endPoint: end
+        )
+        .blendMode(.screen)
+        .opacity(opacity)
+        .offset(y: offset)
+        .scaleEffect(scale)
+    }
+
+    private var radialHighlight: some View {
+        let progress: CGFloat = scrollProgress
+        let pull: CGFloat = pullProgress
+        let opacity: Double = 0.48 + Double(progress) * 0.18
+        let center = UnitPoint(x: 0.88 - progress * 0.32 + pull * 0.08, y: 0.08 + progress * 0.44)
+        let radius: CGFloat = 460 + progress * 140
+        return RadialGradient(
+            colors: [third.opacity(opacity), Color.clear],
+            center: center,
+            startRadius: 24,
+            endRadius: radius
+        )
+        .offset(x: -scrollDistance * 0.05, y: scrollOffset * 0.22)
+    }
+
+    private var shadowGradient: LinearGradient {
+        let progress: Double = Double(scrollProgress)
+        let topOpacity: Double = 0.08 + progress * 0.12
+        let bottomOpacity: Double = 0.5 + progress * 0.08
+        return LinearGradient(
+            colors: [Color.black.opacity(topOpacity), Color.black.opacity(bottomOpacity)],
+            startPoint: .top,
+            endPoint: .bottom
+        )
+    }
+
     var body: some View {
-        let progress = scrollProgress
-        let pull = pullProgress
-        ZStack {
-            LinearGradient(
-                colors: [first, second, Color.black.opacity(0.95)],
-                startPoint: UnitPoint(x: 0.02 + progress * 0.34 - pull * 0.08, y: 0),
-                endPoint: UnitPoint(x: 1 - progress * 0.2 + pull * 0.05, y: 1 - progress * 0.28)
-            )
-            LinearGradient(
-                colors: [third.opacity(0.58), first.opacity(0.18), .clear],
-                startPoint: UnitPoint(x: 0.1 + progress * 0.48, y: -0.08 + pull * 0.08),
-                endPoint: UnitPoint(x: 0.94 - progress * 0.28, y: 1.04)
-            )
-            .blendMode(.screen)
-            .opacity(0.34 + progress * 0.26)
-            .offset(y: -scrollDistance * 0.18 + pullDistance * 0.08)
-            .scaleEffect(1 + progress * 0.08 + pull * 0.04)
-            RadialGradient(
-                colors: [third.opacity(0.48 + progress * 0.18), .clear],
-                center: UnitPoint(x: 0.88 - progress * 0.32 + pull * 0.08, y: 0.08 + progress * 0.44),
-                startRadius: 24,
-                endRadius: 460 + progress * 140
-            )
-            .offset(x: -scrollDistance * 0.05, y: scrollOffset * 0.22)
-            LinearGradient(
-                colors: [.black.opacity(0.08 + progress * 0.12), .black.opacity(0.5 + progress * 0.08)],
-                startPoint: .top,
-                endPoint: .bottom
-            )
+        let hue: Double = Double((scrollDistance - pullDistance) * 0.012)
+        let saturation: Double = 1 + Double(scrollProgress) * 0.16
+        return ZStack {
+            backgroundGradient
+            colorWashGradient
+            radialHighlight
+            shadowGradient
         }
-        .hueRotation(.degrees(Double((scrollDistance - pullDistance) * 0.012)))
-        .saturation(1 + progress * 0.16)
+        .hueRotation(.degrees(hue))
+        .saturation(saturation)
     }
 }
 
@@ -1393,7 +1420,7 @@ private func moveLyricsFileToManagedFolder(from sourceURL: URL) async throws -> 
     let ext = sourceURL.pathExtension.lowercased()
     let supported = ["lrc", "srt", "ttml", "ttlm", "txt", "xml"]
     guard supported.contains(ext) else {
-        throw NSError(domain: "LyricsImport", code: 2, userInfo: [NSLocalizedDescriptionKey: "Unsupported lyrics format"])
+        throw NSError(domain: "LyricsImport", code: 2, userInfo: [NSLocalizedDescriptionKey: String(localized: "Unsupported lyrics format")])
     }
     let fileManager = FileManager.default
     let lyricsDir = try LyricsManagedStorage.ensureLyricsDirectoryExists(fileManager: fileManager)
