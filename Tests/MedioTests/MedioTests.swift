@@ -2961,6 +2961,24 @@ final class SystemUIPresenterTests: XCTestCase {
         }
     }
 
+    func testDocumentSelectionDeliveredJustAfterDismissalIsNotCancelled() async throws {
+        let presenter = SystemUIPresenter()
+        let service = MedioDocumentPickingService(presenter: presenter)
+        let request = Task { try await service.pickFile(contentTypes: [.image], allowsMultipleSelection: false) }
+        await Task.yield()
+        let url = URL(fileURLWithPath: "/tmp/selected-cover.png")
+        presenter.didDismiss()
+        presenter.complete(.success(.documents([url])))
+        let result = try await request.value
+        XCTAssertEqual(result, [url])
+        let next = Task { try await service.pickFile(contentTypes: [.image], allowsMultipleSelection: false) }
+        await Task.yield()
+        presenter.complete(.success(.documents([url])))
+        presenter.didDismiss()
+        let nextResult = try await next.value
+        XCTAssertEqual(nextResult, [url], "The previous dismissal must not cancel a new request")
+    }
+
     func testConcurrentPickerRequestIsRejectedWithoutLosingFirstRequest() async throws {
         let presenter = SystemUIPresenter()
         let service = MedioPhotoPickingService(presenter: presenter)
@@ -2978,6 +2996,7 @@ final class SystemUIPresenterTests: XCTestCase {
         XCTAssertEqual(result, Data([7]))
     }
 }
+
 
 @MainActor
 final class MediaArtworkRenderingTests: XCTestCase {

@@ -19,6 +19,7 @@ enum AppPerformance {
 }
 
 enum AppRuntime {
+    @MainActor private static var didPrepareUITestState = false
     static var isUITesting: Bool {
         ProcessInfo.processInfo.arguments.contains("-medioUITestMode")
     }
@@ -29,7 +30,8 @@ enum AppRuntime {
 
     @MainActor
     static func prepareUITestStateIfNeeded() {
-        guard isUITesting else { return }
+        guard isUITesting, !didPrepareUITestState else { return }
+        didPrepareUITestState = true
         UIView.setAnimationsEnabled(false)
         let fileManager = FileManager.default
         if shouldResetUITestState {

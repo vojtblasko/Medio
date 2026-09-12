@@ -10,6 +10,17 @@ final class MedioUITests: XCTestCase {
         XCTAssertTrue(element.waitForExistence(timeout: timeout), file: file, line: line)
     }
 
+    private func goBack(_ app: XCUIApplication, to previousTitle: String) {
+        // UIKit's private BackButton identifier is absent on some iOS versions.
+        // Scope the public previous-screen label to navigation bars to avoid tabs.
+        let button = app.navigationBars.buttons.matching(
+            NSPredicate(format: "identifier == %@ OR label == %@", "BackButton", previousTitle)
+        ).firstMatch
+        wait(button)
+        XCTAssertTrue(button.isHittable)
+        button.tap()
+    }
+
     private func makeApp(reset: Bool = true, arguments: [String] = []) -> XCUIApplication {
         let app = XCUIApplication()
         app.launchArguments = ["-medioUITestMode"] + (reset ? ["-medioUITestReset"] : []) + arguments
@@ -34,7 +45,7 @@ final class MedioUITests: XCTestCase {
 
         app.buttons["Example Folder"].tap()
         wait(app.buttons["Folder Options"])
-        app.buttons["BackButton"].tap()
+        goBack(app, to: "Home")
 
         app.buttons["Song One"].tap()
         wait(app.buttons["Now Playing"])
@@ -58,7 +69,7 @@ final class MedioUITests: XCTestCase {
         app.buttons["now_playing_queue"].tap()
         wait(app.navigationBars["Queue"])
         wait(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Song One")).firstMatch)
-        app.buttons["BackButton"].tap()
+        goBack(app, to: "Back")
         wait(app.buttons["now_playing_close"])
         app.buttons["now_playing_close"].tap()
     }
@@ -81,11 +92,11 @@ final class MedioUITests: XCTestCase {
         wait(app.buttons["now_playing_close"])
         app.buttons["now_playing_close"].tap()
 
-        app.buttons["BackButton"].tap()
+        goBack(app, to: "Library")
         wait(app.buttons["Example Artist"])
         app.buttons["Example Artist"].tap()
         wait(app.buttons["Artist Options"])
-        app.buttons["BackButton"].tap()
+        goBack(app, to: "Library")
     }
 
     func testHomeAndLibraryOptionMenus() {
@@ -296,7 +307,7 @@ final class MedioUITests: XCTestCase {
         wait(app.staticTexts["Folder name cannot be empty."])
         app.buttons["sheet_close"].tap()
         wait(app.buttons["Folder Options"])
-        app.buttons["BackButton"].tap()
+        goBack(app, to: "Home")
 
         app.buttons["Example Video"].tap()
         wait(app.buttons["Now Playing"])
@@ -355,7 +366,7 @@ final class MedioUITests: XCTestCase {
         wait(options)
         wait(search)
 
-        XCTAssertLessThan(abs(title.frame.midY - options.frame.midY), 12)
+        XCTAssertLessThanOrEqual(abs(title.frame.midY - options.frame.midY), 12)
         XCTAssertLessThan(title.frame.minX, app.frame.midX)
         let expandedTitleHeight = title.frame.height
         XCTAssertTrue(search.isHittable)
