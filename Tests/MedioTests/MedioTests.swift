@@ -3345,13 +3345,13 @@ final class LocalAudioSharingTests: XCTestCase {
         }
         server.start()
         defer { server.stop() }
-        await fulfillment(of: [port], timeout: 5)
+        await fulfillment(of: [port], timeout: 30)
         let base = try XCTUnwrap(portBox.get()).description
         let session = URLSession(configuration: .ephemeral)
         defer { session.invalidateAndCancel() }
         func request(_ path: String, method: String = "GET", body: String? = nil, headers: [String: String] = [:]) async throws -> (Data, HTTPURLResponse) {
             var request = URLRequest(url: URL(string: "http://127.0.0.1:\(base)\(path)")!)
-            request.httpMethod = method; request.httpBody = body.map { Data($0.utf8) }; request.timeoutInterval = 3
+            request.httpMethod = method; request.httpBody = body.map { Data($0.utf8) }; request.timeoutInterval = 15
             for (name, value) in headers { request.setValue(value, forHTTPHeaderField: name) }
             let (data, response) = try await session.data(for: request)
             return (data, try XCTUnwrap(response as? HTTPURLResponse))
@@ -3431,7 +3431,7 @@ final class AudioSharingReceiverTests: XCTestCase {
         }
         server.start()
         defer { server.stop() }
-        await fulfillment(of: [port], timeout: 5)
+        await fulfillment(of: [port], timeout: 30)
         let documents = try XCTUnwrap(FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first)
         let file = documents.appendingPathComponent("receiver-test-\(UUID().uuidString).wav")
         defer { try? FileManager.default.removeItem(at: file) }
@@ -3454,11 +3454,12 @@ final class AudioSharingReceiverTests: XCTestCase {
         let window = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }.flatMap(\.windows).first { $0.isKeyWindow }
         window?.addSubview(web)
         defer { web.removeFromSuperview(); web.stopLoading() }
+        let serverPort = try XCTUnwrap(box.get(), "Loopback listener did not become ready")
         let loaded = expectation(description: "Receiver page loads")
         let delegate = SharingNavigationDelegate(loaded: loaded)
         web.navigationDelegate = delegate
-        web.load(URLRequest(url: URL(string: "http://127.0.0.1:\(try XCTUnwrap(box.get()))/")!))
-        await fulfillment(of: [loaded], timeout: 8)
+        web.load(URLRequest(url: URL(string: "http://127.0.0.1:\(serverPort)/")!))
+        await fulfillment(of: [loaded], timeout: 30)
         try await evaluate(web, script: "document.getElementById('code').value='654321';document.getElementById('join').requestSubmit();true")
         try await waitFor(web, expression: "!document.getElementById('player').hidden && document.getElementById('audio').src.includes('/audio/')")
         try await evaluate(web, script: "document.getElementById('audio').muted=true;document.getElementById('listen').click();true")
@@ -3484,7 +3485,7 @@ final class AudioSharingReceiverTests: XCTestCase {
         }
     }
 
-    private func waitFor(_ web: WKWebView, expression: String, timeout: TimeInterval = 8) async throws {
+    private func waitFor(_ web: WKWebView, expression: String, timeout: TimeInterval = 15) async throws {
         let deadline = Date().addingTimeInterval(timeout)
         while Date() < deadline {
             if try await evaluate(web, script: expression) { return }

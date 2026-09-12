@@ -215,11 +215,18 @@ final class LocalAudioHTTPServer: @unchecked Sendable {
         queue.async { [self] in
             do {
                 let parameters = NWParameters.tcp
-                if restrictToWiFi { parameters.requiredInterfaceType = .wifi }
+                if restrictToWiFi {
+                    parameters.requiredInterfaceType = .wifi
+                } else {
+                    // Integration tests stay on loopback and do not ask for LAN access.
+                    parameters.requiredLocalEndpoint = .hostPort(host: "127.0.0.1", port: .any)
+                }
                 parameters.includePeerToPeer = false
                 let listener = try NWListener(using: parameters, on: .any)
                 self.listener = listener
-                listener.service = NWListener.Service(name: "Medio Audio", type: "_medio-audio._tcp")
+                if restrictToWiFi {
+                    listener.service = NWListener.Service(name: "Medio Audio", type: "_medio-audio._tcp")
+                }
                 listener.stateUpdateHandler = { [weak self, weak listener] state in
                     guard let self else { return }
                     switch state {
