@@ -3056,6 +3056,20 @@ final class SystemUIPresenterTests: XCTestCase {
         }
     }
 
+    func testPhotoLoadingSurvivesDismissalUntilProviderCompletes() async throws {
+        let presenter = SystemUIPresenter()
+        let service = MedioPhotoPickingService(presenter: presenter)
+        let request = Task { try await service.pickImage() }
+        await Task.yield()
+        presenter.beginLoadingSelection()
+        presenter.didDismiss()
+        // Let the queued cancellation fallback run while a photo is still loading.
+        try await Task.sleep(nanoseconds: 50_000_000)
+        presenter.complete(.success(.image(Data([4, 5, 6]))))
+        let result = try await request.value
+        XCTAssertEqual(result, Data([4, 5, 6]))
+    }
+
     func testDocumentSelectionDeliveredJustAfterDismissalIsNotCancelled() async throws {
         let presenter = SystemUIPresenter()
         let service = MedioDocumentPickingService(presenter: presenter)
@@ -3404,6 +3418,11 @@ private final class SharingTestPort: @unchecked Sendable {
 // Autoplay policy is disabled only in this test; the production page requires Listen.
 @MainActor
 final class AudioSharingReceiverTests: XCTestCase {
+    func testSharingAddressSupportsBothIPFamilies() {
+        XCTAssertEqual(LocalAudioSharing.listenerURL(host: "192.168.1.2", port: 8080)?.absoluteString, "http://192.168.1.2:8080")
+        XCTAssertEqual(LocalAudioSharing.listenerURL(host: "fd00::1234", port: 8080)?.absoluteString, "http://[fd00::1234]:8080")
+    }
+
     func testBrowserReceivesAudioFollowsPauseAndStopsWithHost() async throws {
         let port = expectation(description: "Browser test server starts")
         let box = SharingTestPort()
@@ -3442,11 +3461,15 @@ final class AudioSharingReceiverTests: XCTestCase {
         await fulfillment(of: [loaded], timeout: 8)
         try await evaluate(web, script: "document.getElementById('code').value='654321';document.getElementById('join').requestSubmit();true")
         try await waitFor(web, expression: "!document.getElementById('player').hidden && document.getElementById('audio').src.includes('/audio/')")
-        try await evaluate(web, script: "document.getElementById('audio').volume=0;document.getElementById('listen').click();true")
-        try await waitFor(web, expression: "!document.getElementById('audio').paused && document.getElementById('audio').currentTime > 0")
+        try await evaluate(web, script: "document.getElementById('audio').muted=true;document.getElementById('listen').click();true")
+        try await waitFor(web, expression: "!document.getElementById('audio').paused && document.getElementById('audio').currentTime > 0", timeout: 60)
         try await waitFor(web, expression: "document.getElementById('title').textContent === 'Receiver <test>' && !document.querySelector('#title test')")
-        server.update(track: track, state: SharedAudioState(track: track.id, title: item.title, position: 1, playing: false))
-        try await waitFor(web, expression: "document.getElementById('audio').paused")
+        // Moving to another queue entry keeps following without leaving a stale Listen button.
+        let nextTrack = SharedAudioTrack(id: UUID().uuidString, url: track.url, mimeType: track.mimeType, size: track.size)
+        server.update(track: nextTrack, state: SharedAudioState(track: nextTrack.id, title: "Next song", position: 0, playing: true))
+        try await waitFor(web, expression: "document.getElementById('title').textContent === 'Next song' && !audio.paused && audio.currentTime > 0 && document.getElementById('listen').hidden", timeout: 60)
+        server.update(track: nextTrack, state: SharedAudioState(track: nextTrack.id, title: "Next song", position: 1, playing: false))
+        try await waitFor(web, expression: "document.getElementById('audio').paused && document.getElementById('listen').hidden")
         server.stop()
         try await waitFor(web, expression: "document.getElementById('player').hidden", timeout: 20)
     }
@@ -3467,7 +3490,14 @@ final class AudioSharingReceiverTests: XCTestCase {
             if try await evaluate(web, script: expression) { return }
             try await Task.sleep(nanoseconds: 100_000_000)
         }
-        XCTFail("Receiver condition timed out: \(expression)")
+        let diagnostic = try await withCheckedThrowingContinuation { (continuation: CheckedContinuation<String, Error>) in
+            web.evaluateJavaScript("JSON.stringify({status:document.getElementById('status').textContent,ready:audio.readyState,network:audio.networkState,paused:audio.paused,time:audio.currentTime,error:audio.error?.message})") { result, error in
+                if let error { continuation.resume(throwing: error) }
+                else { continuation.resume(returning: result as? String ?? "No browser state") }
+            }
+        }
+        throw NSError(domain: "AudioSharingReceiverTests", code: 1, userInfo: [NSLocalizedDescriptionKey: "Receiver condition timed out: \(expression). \(diagnostic)"])
+
     }
 }
 

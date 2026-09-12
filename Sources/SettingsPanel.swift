@@ -571,7 +571,7 @@ struct SettingsPanel: View {
                     if total == 0 {
                         liviedStatus = String(localized: "No loose lyrics files found.")
                     } else {
-                        liviedStatus = "Organizing loose lyrics files \(processed)/\(total)..."
+                        liviedStatus = String(localized: "Organizing loose lyrics files \(processed)/\(total)...")
                     }
                 }
 

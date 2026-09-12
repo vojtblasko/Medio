@@ -253,6 +253,34 @@
         }
       }
     },
+    "%lld%% complete — scanned %lld of %lld": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld%% complete — scanned %lld of %lld"
+          }
+        },
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld %% dokončeno — prohledáno %lld z %lld"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld %% abgeschlossen — %lld von %lld durchsucht"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld %% terminé — %lld sur %lld analysés"
+          }
+        }
+      }
+    },
     "About": {
       "localizations": {
         "en": {
@@ -6497,6 +6525,34 @@
         }
       }
     },
+    "Organizing loose lyrics files %lld/%lld...": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Organizing loose lyrics files %lld/%lld..."
+          }
+        },
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Uspořádávání samostatných souborů textů %lld/%lld..."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Einzelne Liedtextdateien werden geordnet: %lld/%lld..."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Classement des fichiers de paroles séparés : %lld/%lld..."
+          }
+        }
+      }
+    },
     "Organizing loose lyrics files...": {
       "localizations": {
         "en": {
@@ -8873,6 +8929,116 @@
           "stringUnit": {
             "state": "translated",
             "value": "Diagnostic du stockage"
+          }
+        }
+      }
+    },
+    "Storage refresh failed: %@": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Storage refresh failed: %@"
+          }
+        },
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktualizace úložiště selhala: %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Aktualisierung des Speichers fehlgeschlagen: %@"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Échec de l’actualisation du stockage : %@"
+          }
+        }
+      }
+    },
+    "Storage was scanned and %lld items were found, but none are visible on Home.": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Storage was scanned and %lld item was found, but it is not visible on Home."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Storage was scanned and %lld items were found, but none are visible on Home."
+                }
+              }
+            }
+          }
+        },
+        "cs": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Úložiště bylo prohledáno a byla nalezena %lld položka, ale na úvodní obrazovce není viditelná."
+                }
+              },
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Úložiště bylo prohledáno a byly nalezeny %lld položky, ale na úvodní obrazovce nejsou viditelné."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Úložiště bylo prohledáno a bylo nalezeno %lld položek, ale na úvodní obrazovce nejsou viditelné."
+                }
+              }
+            }
+          }
+        },
+        "de": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Der Speicher wurde durchsucht und %lld Objekt gefunden, das auf der Startseite nicht sichtbar ist."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Der Speicher wurde durchsucht und %lld Objekte gefunden, die auf der Startseite nicht sichtbar sind."
+                }
+              }
+            }
+          }
+        },
+        "fr": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Le stockage a été analysé et %lld élément a été trouvé, mais il n’est pas visible dans Accueil."
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "Le stockage a été analysé et %lld éléments ont été trouvés, mais aucun n’est visible dans Accueil."
+                }
+              }
+            }
           }
         }
       }

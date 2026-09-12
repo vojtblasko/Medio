@@ -47,7 +47,7 @@ enum SharingReceiverPage {
           if(Number.isFinite(state.position)&&Math.abs(audio.currentTime-state.position)>1.2){try{audio.currentTime=state.position;}catch{}}
         }
         async function play(){
-          try{await audio.play();message('');}catch{message(t.blocked);el('listen').hidden=false;}
+          try{await audio.play();el('listen').hidden=true;message('');}catch{message(t.blocked);el('listen').hidden=false;}
         }
         el('listen').onclick=()=>{
           if(!latest?.track){message(t.wait);return;}
@@ -68,7 +68,7 @@ enum SharingReceiverPage {
               audio.pause();currentTrack=state.track||'';
               if(currentTrack){audio.src='/audio/'+encodeURIComponent(currentTrack)+'?token='+encodeURIComponent(token);audio.load();}
               else{audio.removeAttribute('src');audio.load();}
-              el('listen').hidden=false;
+              el('listen').hidden=following;
             }
             if(!state.track){message(state.message||t.wait);}
             else if(following){align(state);if(state.playing){if(audio.paused&&!audio.ended)play();else if(audio.ended){align(state);play();}}else audio.pause();}

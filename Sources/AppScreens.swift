@@ -278,7 +278,7 @@ private struct LibraryLoadingStatusView: View {
         case .scanningFiles:
             if let total = progress.totalItemCount {
                 let percent = Int(((progress.fractionCompleted ?? 0) * 100).rounded())
-                return "\(percent)% complete - \(progress.completedItemCount) of \(total) items scanned"
+                return String(localized: "\(percent)% complete — scanned \(progress.completedItemCount) of \(total)")
             }
             return String(localized: "Scanning files")
         case .buildingIndex:
@@ -954,7 +954,7 @@ struct HomeScreen: View {
         }
 
         if let error = container.libraryStore.lastStorageScanError {
-            return "Storage refresh failed: \(error)"
+            return String(localized: "Storage refresh failed: \(error)")
         }
 
         if let summary = container.libraryStore.lastStorageScanSummary {
@@ -962,7 +962,7 @@ struct HomeScreen: View {
                 return String(localized: "Storage was scanned, but Medio found no files in On My iPhone > Medio.")
             }
             if summary.visibleHomeItemCount == 0 {
-                return "Storage was scanned and \(summary.scannedItemCount) item(s) were found, but none are visible on Home."
+                return String(localized: "Storage was scanned and \(summary.scannedItemCount) items were found, but none are visible on Home.")
             }
         }
 

@@ -606,6 +606,7 @@ enum PlaybackIndicatorScope: Int, CaseIterable, Identifiable {
     static let key = "medio.settings.playbackIndicatorScopes"
     static let all = 7
     var id: Int { rawValue }
+    var accessibilityKey: String { switch self { case .songs: "songs"; case .albums: "albums"; case .artists: "artists" } }
     var title: String { switch self { case .songs: String(localized: "Songs"); case .albums: String(localized: "Albums"); case .artists: String(localized: "Artists") } }
 }
 
@@ -627,7 +628,7 @@ struct PlaybackIndicatorSettingsSection: View {
                     }
                 }
                 .accessibilityValue(scopes & scope.rawValue != 0 ? "Selected" : "Not selected")
-                .accessibilityIdentifier("settings_indicator_\(scope.title.lowercased())")
+                .accessibilityIdentifier("settings_indicator_\(scope.accessibilityKey)")
             }
             Text("Show the audio spectrum in place of artwork for the current song, its album, or its artist.")
                 .font(.caption).foregroundStyle(.secondary)

@@ -52,7 +52,7 @@ final class LocalAudioSharing: ObservableObject {
                 guard self.isEnabled else { return }
                 switch event {
                 case .ready(let port):
-                    self.address = URL(string: "http://\(host):\(port)")
+                    self.address = Self.listenerURL(host: host, port: port)
                     self.status = String(localized: "Ready for listeners")
                 case .failed:
                     self.stop()
@@ -108,23 +108,34 @@ final class LocalAudioSharing: ObservableObject {
         ))
     }
 
+    static func listenerURL(host: String, port: UInt16) -> URL? {
+        // An IPv6 literal needs brackets; interface-scoped addresses are not portable
+        // to the receiving device, so wifiAddress excludes them.
+        let authority = host.contains(":") ? "[\(host)]" : host
+        return URL(string: "http://\(authority):\(port)")
+    }
+
     private static func wifiAddress() -> String? {
         var interfaces: UnsafeMutablePointer<ifaddrs>?
         guard getifaddrs(&interfaces) == 0, let first = interfaces else { return nil }
         defer { freeifaddrs(interfaces) }
+        var ipv6Host: String?
         var pointer: UnsafeMutablePointer<ifaddrs>? = first
         while let current = pointer {
             let interface = current.pointee
             defer { pointer = interface.ifa_next }
             guard String(cString: interface.ifa_name) == "en0", let address = interface.ifa_addr,
-                  address.pointee.sa_family == UInt8(AF_INET),
+                  [UInt8(AF_INET), UInt8(AF_INET6)].contains(address.pointee.sa_family),
                   interface.ifa_flags & UInt32(IFF_UP) != 0 else { continue }
             var host = [CChar](repeating: 0, count: Int(NI_MAXHOST))
             if getnameinfo(address, socklen_t(address.pointee.sa_len), &host, socklen_t(host.count), nil, 0, NI_NUMERICHOST) == 0 {
-                return String(decoding: host.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
+                let numericHost = String(decoding: host.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)
+                if address.pointee.sa_family == UInt8(AF_INET) { return numericHost }
+                if !numericHost.contains("%") { ipv6Host = numericHost }
+
             }
         }
-        return nil
+        return ipv6Host
     }
 }
 

@@ -6,7 +6,7 @@ import CoreImage
 
 extension FileInfo {
     var medioAboutActionTitle: String {
-        if MedioShadowFolder.isFavorites(id) { return "About Favorites" }
+        if MedioShadowFolder.isFavorites(id) { return String(localized: "About Favorites") }
         switch fileType {
         case .folder: return String(localized: "About Folder")
         case .music: return String(localized: "About Music")
@@ -534,8 +534,8 @@ struct FileAboutPanel: View {
                     }
                     if showsEditableMetadataSection {
                         Section("Editable Metadata") {
-                            editableMetadataRow("Artist", value: metadataOverride?.artist ?? item?.author ?? "Unknown Artist")
-                            editableMetadataRow(String(localized: "Album"), value: metadataOverride?.album ?? item?.album ?? "Unknown Album")
+                            editableMetadataRow(String(localized: "Artist"), value: metadataOverride?.artist ?? item?.author ?? String(localized: "Unknown Artist"))
+                            editableMetadataRow(String(localized: "Album"), value: metadataOverride?.album ?? item?.album ?? String(localized: "Unknown Album"))
                             editableMetadataRow(String(localized: "Genre"), value: metadataOverride?.genre ?? item?.genre ?? String(localized: "Not Set"))
                             editableMetadataRow(String(localized: "Year"), value: metadataOverride?.year ?? item?.year ?? String(localized: "Not Set"))
                         }
@@ -547,7 +547,7 @@ struct FileAboutPanel: View {
                             CompatibleLabeledContent(String(localized: "Kind"), value: properties.kind)
                             locationButton(properties.location)
                             if let size = properties.size { CompatibleLabeledContent(String(localized: "Size"), value: size) }
-                            if let itemCount = properties.itemCount { CompatibleLabeledContent("Items", value: itemCount) }
+                            if let itemCount = properties.itemCount { CompatibleLabeledContent(String(localized: "Items"), value: itemCount) }
                             if let created = properties.created { CompatibleLabeledContent(String(localized: "Created"), value: created) }
                             if let modified = properties.modified { CompatibleLabeledContent(String(localized: "Modified"), value: modified) }
                             if let lastOpened = properties.lastOpened { CompatibleLabeledContent(String(localized: "Last Opened"), value: lastOpened) }
@@ -558,7 +558,7 @@ struct FileAboutPanel: View {
                 }
                 if let item, showsMetadataSection {
                     Section("Metadata") {
-                        if let author = item.author { CompatibleLabeledContent("Artist", value: author) }
+                        if let author = item.author { CompatibleLabeledContent(String(localized: "Artist"), value: author) }
                         if let album = item.album { CompatibleLabeledContent(String(localized: "Album"), value: album) }
                         if let duration = item.durationMs { CompatibleLabeledContent(String(localized: "Duration"), value: formattedDuration(duration)) }
                     }
@@ -1935,7 +1935,7 @@ struct AlbumPanel: View {
                 }
                 Section("About \(name)") {
                     CompatibleLabeledContent(String(localized: "Tracks"), value: "\(vm.metadata.songCountInAlbumFolders)")
-                    CompatibleLabeledContent("Artist", value: vm.metadata.subtitleArtist)
+                    CompatibleLabeledContent(String(localized: "Artist"), value: vm.metadata.subtitleArtist)
                     CompatibleLabeledContent(String(localized: "Year"), value: vm.metadata.subtitleYear)
                     CompatibleLabeledContent(String(localized: "Genre"), value: vm.metadata.genre)
                     CompatibleLabeledContent(String(localized: "Credits"), value: vm.metadata.credits)
@@ -2188,7 +2188,7 @@ struct AlbumAboutPanel: View {
                 .buttonStyle(.plain)
 
                 editableMetadataRow(String(localized: "Album"), value: representativeOverride?.album ?? name)
-                editableMetadataRow("Artist", value: representativeOverride?.artist ?? vm.metadata.subtitleArtist)
+                editableMetadataRow(String(localized: "Artist"), value: representativeOverride?.artist ?? vm.metadata.subtitleArtist)
                 editableMetadataRow(String(localized: "Genre"), value: representativeOverride?.genre ?? vm.metadata.genre)
                 editableMetadataRow(String(localized: "Year"), value: representativeOverride?.year ?? vm.metadata.subtitleYear)
             }
@@ -2549,7 +2549,7 @@ struct ArtistAboutPanel: View {
                 }
                 .buttonStyle(.plain)
 
-                editableMetadataRow("Artist", value: representativeOverride?.artist ?? name)
+                editableMetadataRow(String(localized: "Artist"), value: representativeOverride?.artist ?? name)
                 editableMetadataRow(String(localized: "Genre"), value: representativeOverride?.genre ?? commonGenre)
                 editableMetadataRow(String(localized: "Year"), value: representativeOverride?.year ?? commonYear)
             }
