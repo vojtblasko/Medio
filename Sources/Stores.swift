@@ -13,9 +13,9 @@ enum FileBrowserViewStyle: String {
 
     var title: String {
         switch self {
-        case .icons: "Icons"
-        case .list: "List"
-        case .desktop: "Desktop Style"
+        case .icons: String(localized: "Icons")
+        case .list: String(localized: "List")
+        case .desktop: String(localized: "Desktop Style")
         }
     }
 
@@ -357,9 +357,9 @@ enum AlbumTrackOrdering {
         }
 
         var title: String? {
-            guard let raw else { return "Other Tracks" }
-            if let ordinal { return "Disc \(ordinal)" }
-            return "Disc \(raw)"
+            guard let raw else { return String(localized: "Other Tracks") }
+            if let ordinal { return String(localized: "Disc \(ordinal)") }
+            return String(localized: "Disc \(raw)")
         }
     }
 }
@@ -707,15 +707,24 @@ final class LibraryStore: ObservableObject {
 @MainActor
 final class PlaybackStore: ObservableObject {
     @Published var nowPlaying: MediaItem? = nil
-    @Published var queue: [MediaItem] = []
+    @Published var queue: [MediaItem] = [] { didSet { updatePastQueueItems() } }
+    @Published private(set) var pastQueueItemIDs: Set<String> = []
     @Published var isPlaying: Bool = false
     @Published var audioLevels: [Double] = PlaybackAudioLevels.resting
     private(set) var positionMs: Int = 0
     private(set) var durationMs: Int? = nil
-    @Published var currentIndex: Int? = nil
+    @Published var currentIndex: Int? = nil { didSet { updatePastQueueItems() } }
 
     /// Back-compat for existing view models.
-    @Published var playback: PlaybackState = PlaybackState()
+    @Published var playback: PlaybackState = PlaybackState() {
+        didSet { if playback.queueIndex != oldValue.queueIndex { updatePastQueueItems() } }
+    }
+
+    private func updatePastQueueItems() {
+        let index = min(max(currentIndex ?? playback.queueIndex ?? 0, 0), queue.count)
+        let past = Set(queue.prefix(index).map(\.id)).subtracting(queue.dropFirst(index).map(\.id))
+        if pastQueueItemIDs != past { pastQueueItemIDs = past }
+    }
 
     private var playbackCancellable: AnyCancellable?
 
@@ -736,12 +745,7 @@ final class PlaybackStore: ObservableObject {
         // Apply update atomically and defensively so UI never sees a partial state.
 
         // Build visible queue from update (authoritative)
-        var visibleQueue = update.queue
-        if visibleQueue.isEmpty, (update.isPlaying || isPlaying), !queue.isEmpty {
-            // AVQueuePlayer can emit transient empty snapshots while active.
-            // Keep the last valid queue to prevent UI from dropping to empty state.
-            visibleQueue = queue
-        }
+        let visibleQueue = update.queue
 
         // Determine canonical index: prefer update.queueIndex if valid, otherwise try to locate update.item inside queue
         var canonicalIndex: Int? = nil
@@ -780,7 +784,7 @@ final class PlaybackStore: ObservableObject {
             canonicalNowPlaying = nil
         }
 
-        if canonicalNowPlaying == nil, (update.isPlaying || isPlaying), let existing = nowPlaying {
+        if canonicalNowPlaying == nil, !visibleQueue.isEmpty, update.isPlaying, let existing = nowPlaying {
             canonicalNowPlaying = existing
             if canonicalIndex == nil {
                 canonicalIndex = visibleQueue.firstIndex(where: { $0.id == existing.id }) ?? currentIndex
@@ -855,12 +859,12 @@ enum HomeSortBy: Int, Hashable, CaseIterable {
 
     var title: String {
         switch self {
-        case .added: return "Added"
-        case .name: return "Name"
-        case .kind: return "Kind"
-        case .dateModified: return "Date Modified"
-        case .releaseDate: return "Release Date"
-        case .size: return "Size"
+        case .added: return String(localized: "Added")
+        case .name: return String(localized: "Name")
+        case .kind: return String(localized: "Kind")
+        case .dateModified: return String(localized: "Date Modified")
+        case .releaseDate: return String(localized: "Release Date")
+        case .size: return String(localized: "Size")
         }
     }
 
@@ -970,11 +974,11 @@ enum FavoritesSortBy: Int, Hashable, CaseIterable {
 
     var title: String {
         switch self {
-        case .dateAdded: return "Date Added"
-        case .name: return "Name"
-        case .dateModified: return "Date Modified"
-        case .releaseDate: return "Release Date"
-        case .size: return "Size"
+        case .dateAdded: return String(localized: "Date Added")
+        case .name: return String(localized: "Name")
+        case .dateModified: return String(localized: "Date Modified")
+        case .releaseDate: return String(localized: "Release Date")
+        case .size: return String(localized: "Size")
         }
     }
 
@@ -1067,6 +1071,9 @@ final class SettingsStore: ObservableObject {
     @Published var favoritesHomeFolderEnabled = true {
         didSet { savePrioritySettings() }
     }
+    @Published var favoritesPriorityFolderEnabled = true {
+        didSet { savePrioritySettings() }
+    }
     @Published var primaryPriorityFolderPath: String? {
         didSet { savePrioritySettings() }
     }
@@ -1097,6 +1104,7 @@ final class SettingsStore: ObservableObject {
     /// Global gate for every network connection. Any internet-using feature must check this before starting URLSession work.
     @Published var appCanConnectToInternet: Bool = false {
         didSet {
+            OnlineAccessStore.shared.masterEnabled = appCanConnectToInternet
             saveInternetAccessSetting()
         }
     }
@@ -1157,6 +1165,7 @@ final class SettingsStore: ObservableObject {
             if defaults.object(forKey: DefaultsKey.favoritesHomeFolderEnabled) != nil {
                 favoritesHomeFolderEnabled = defaults.bool(forKey: DefaultsKey.favoritesHomeFolderEnabled)
             }
+            favoritesPriorityFolderEnabled = favoritesHomeFolderEnabled
             primaryPriorityFolderPath = defaults.string(forKey: DefaultsKey.primaryPriorityFolderPath)?.nilIfEmpty
             if defaults.object(forKey: DefaultsKey.appCanConnectToInternet) != nil {
                 appCanConnectToInternet = defaults.bool(forKey: DefaultsKey.appCanConnectToInternet)
@@ -1178,6 +1187,7 @@ final class SettingsStore: ObservableObject {
             }
         }
         isLoadingPrioritySettings = false
+        OnlineAccessStore.shared.masterEnabled = appCanConnectToInternet
         normalizePrioritySlots()
         persistUnifiedSettings()
     }
@@ -1371,6 +1381,7 @@ final class SettingsStore: ObservableObject {
 @MainActor
 protocol PlaybackService {
     func setQueue(_ items: [MediaItem], startAt index: Int) async
+    func updateQueue(_ items: [MediaItem], currentIndex: Int, preservingCurrentItem: Bool) async
     func play() async
     func pause() async
     func seek(toMs: Int) async
@@ -1460,12 +1471,23 @@ final class InMemoryPlaybackService: PlaybackService {
     func setQueue(_ items: [MediaItem], startAt index: Int) async {
         store.queue = items
         let safeIndex = min(max(index, 0), max(items.count - 1, 0))
-        store.playback.queueIndex = items.isEmpty ? nil : safeIndex
+        store.currentIndex = items.isEmpty ? nil : safeIndex
+        store.playback.queueIndex = store.currentIndex
         store.nowPlaying = items.isEmpty ? nil : items[safeIndex]
         store.isPlaying = false
+        store.playback.isPlaying = false
         store.audioLevels = PlaybackAudioLevels.resting
         store.playback.positionMs = 0
         store.playback.durationMs = 180_000
+    }
+
+    func updateQueue(_ items: [MediaItem], currentIndex: Int, preservingCurrentItem: Bool) async {
+        let wasPlaying = store.isPlaying
+        let position = store.playback.positionMs
+        await setQueue(items, startAt: currentIndex)
+        if preservingCurrentItem { store.playback.positionMs = position }
+        if wasPlaying && !items.isEmpty { await play() }
+        else { await pause() }
     }
 
     func play() async {
@@ -1491,6 +1513,7 @@ final class InMemoryPlaybackService: PlaybackService {
             return
         }
         let next = ((store.playback.queueIndex ?? 0) + 1) % store.queue.count
+        store.currentIndex = next
         store.playback.queueIndex = next
         store.nowPlaying = store.queue[next]
         store.playback.positionMs = 0
@@ -1500,6 +1523,7 @@ final class InMemoryPlaybackService: PlaybackService {
         guard !store.queue.isEmpty else { return }
         let cur = store.playback.queueIndex ?? 0
         let prev = (cur - 1 + store.queue.count) % store.queue.count
+        store.currentIndex = prev
         store.playback.queueIndex = prev
         store.nowPlaying = store.queue[prev]
         store.playback.positionMs = 0

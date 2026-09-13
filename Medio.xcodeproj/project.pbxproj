@@ -7,6 +7,10 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		FC9B20260912000000000011 /* InfoPlist.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = FC9A20260912000000000011 /* InfoPlist.xcstrings */; };
+		FC9B20260912000000000010 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = FC9A20260912000000000010 /* Localizable.xcstrings */; };
+		FC9B20260912000000000001 /* SharingReceiverPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC9A20260912000000000001 /* SharingReceiverPage.swift */; };
+		FC9B20260912000000000000 /* LocalAudioSharing.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC9A20260912000000000000 /* LocalAudioSharing.swift */; };
 		100000000000000000000007 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000017 /* Assets.xcassets */; };
 		1000000000000000000000E1 /* MedioTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000E0 /* MedioTests.swift */; };
 		1000000000000000000000F1 /* MedioUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000F0 /* MedioUITests.swift */; };
@@ -74,6 +78,10 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
+		FC9A20260912000000000011 /* InfoPlist.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = InfoPlist.xcstrings; sourceTree = "<group>"; };
+		FC9A20260912000000000010 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		FC9A20260912000000000001 /* SharingReceiverPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharingReceiverPage.swift; sourceTree = "<group>"; };
+		FC9A20260912000000000000 /* LocalAudioSharing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalAudioSharing.swift; sourceTree = "<group>"; };
 		100000000000000000000010 /* Medio.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Medio.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		100000000000000000000016 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		100000000000000000000017 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -165,6 +173,8 @@
 		100000000000000000000021 /* Sources */ = {
 			isa = PBXGroup;
 			children = (
+				FC9A20260912000000000001 /* SharingReceiverPage.swift */,
+				FC9A20260912000000000000 /* LocalAudioSharing.swift */,
 				FC5A10022FD7000000000002 /* AppInfrastructure.swift */,
 				FC5A11042FD7000000000014 /* DesktopPositionStore.swift */,
 				FC5A11022FD7000000000012 /* FileMoveService.swift */,
@@ -215,6 +225,8 @@
 		100000000000000000000022 /* Resources */ = {
 			isa = PBXGroup;
 			children = (
+				FC9A20260912000000000011 /* InfoPlist.xcstrings */,
+				FC9A20260912000000000010 /* Localizable.xcstrings */,
 				100000000000000000000016 /* Info.plist */,
 				100000000000000000000017 /* Assets.xcassets */,
 				FC68182B2FA26813004A829E /* AppIcon.icon */,
@@ -333,6 +345,9 @@
 			hasScannedForEncodings = 0;
 			knownRegions = (
 				en,
+				cs,
+				de,
+				fr,
 				Base,
 			);
 			mainGroup = 100000000000000000000020;
@@ -352,6 +367,8 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FC9B20260912000000000011 /* InfoPlist.xcstrings in Resources */,
+				FC9B20260912000000000010 /* Localizable.xcstrings in Resources */,
 				100000000000000000000007 /* Assets.xcassets in Resources */,
 				FC68182C2FA26813004A829E /* AppIcon.icon in Resources */,
 			);
@@ -364,6 +381,8 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				FC9B20260912000000000001 /* SharingReceiverPage.swift in Sources */,
+				FC9B20260912000000000000 /* LocalAudioSharing.swift in Sources */,
 				FC5A10032FD7000000000003 /* AppInfrastructure.swift in Sources */,
 				FC5A11052FD7000000000015 /* DesktopPositionStore.swift in Sources */,
 				FC5A11032FD7000000000013 /* FileMoveService.swift in Sources */,
@@ -449,7 +468,6 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				MARKETING_VERSION = 1.0;
 				DEVELOPMENT_TEAM = R2H6FN8NZ5;
 				ENABLE_PREVIEWS = YES;
 				ENABLE_TESTABILITY = YES;
@@ -462,6 +480,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.medio.vojtblasko;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
@@ -481,7 +500,6 @@
 				CLANG_ENABLE_MODULES = YES;
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
-				MARKETING_VERSION = 1.0;
 				DEVELOPMENT_TEAM = R2H6FN8NZ5;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = NO;
@@ -493,6 +511,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.medio.vojtblasko;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
@@ -548,8 +567,8 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.medio.vojtblasko.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
-				SWIFT_VERSION = 6.0;
 				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Medio.app/Medio";
 			};
@@ -570,8 +589,8 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.medio.vojtblasko.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
-				SWIFT_VERSION = 6.0;
 				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Medio.app/Medio";
 			};
@@ -586,8 +605,8 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.medio.vojtblasko.uitests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
-				SWIFT_VERSION = 6.0;
 				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_TARGET_NAME = Medio;
 			};
@@ -602,8 +621,8 @@
 				PRODUCT_BUNDLE_IDENTIFIER = com.medio.vojtblasko.uitests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
-				SWIFT_VERSION = 6.0;
 				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 				TEST_TARGET_NAME = Medio;
 			};

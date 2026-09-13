@@ -4,60 +4,59 @@ import UIKit
 
 // MARK: - App Screens
 
-struct MenuOptionLabel: View {
-    let title: String
-    let systemImage: String
-    var isSelected = false
-    var detail: String? = nil
+/// UIKit owns checkmark placement, subtitles, and Liquid Glass menu presentation.
+struct NativeBrowserOptionsMenu: View {
+    let accessibilityLabel: String
+    let makeMenu: () -> UIMenu
+    @Environment(\.medioUsesCompactRootChrome) private var compact
 
     var body: some View {
-        HStack {
-            if isSelected {
-                Image(systemName: "checkmark")
-                    .frame(width: 18)
-            } else {
-                Color.clear
-                    .frame(width: 18, height: 1)
-            }
-            Image(systemName: systemImage)
-                .frame(width: 24)
-            VStack(alignment: .leading, spacing: 1) {
-                Text(title)
-                if let detail {
-                    Text(detail)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            Spacer()
-        }
+        NativeBrowserMenuButton(accessibilityLabel: accessibilityLabel, makeMenu: makeMenu)
+            .frame(width: compact ? 36 : 44, height: compact ? 36 : 44)
     }
 }
 
-struct SortMenuOptionLabel: View {
-    let title: String
-    var isSelected = false
-    var detail: String? = nil
+private struct NativeBrowserMenuButton: UIViewRepresentable {
+    let accessibilityLabel: String
+    let makeMenu: () -> UIMenu
 
-    var body: some View {
-        HStack {
-            if isSelected {
-                Image(systemName: "checkmark")
-                    .frame(width: 18)
-            } else {
-                Color.clear
-                    .frame(width: 18, height: 1)
-            }
-            VStack(alignment: .leading, spacing: 1) {
-                Text(title)
-                if let detail {
-                    Text(detail)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-            Spacer()
-        }
+    func makeUIView(context: Context) -> UIButton {
+        let button = UIButton(type: .system)
+        button.setImage(UIImage(systemName: "ellipsis", withConfiguration: UIImage.SymbolConfiguration(pointSize: 20, weight: .semibold)), for: .normal)
+        button.tintColor = .label
+        button.showsMenuAsPrimaryAction = true
+        return button
+    }
+
+    func updateUIView(_ button: UIButton, context: Context) {
+        button.accessibilityLabel = accessibilityLabel
+        button.menu = makeMenu()
+    }
+}
+
+@MainActor
+enum BrowserOptionsMenu {
+    static func action(_ title: String, _ symbol: String, enabled: Bool = true, perform: @escaping () -> Void) -> UIAction {
+        UIAction(title: NSLocalizedString(title, comment: "Browser menu action"), image: UIImage(systemName: symbol), attributes: enabled ? [] : [.disabled]) { _ in perform() }
+    }
+
+    static func section(_ children: [UIMenuElement]) -> UIMenu {
+        UIMenu(options: .displayInline, children: children)
+    }
+
+    static func views(selected: FileBrowserViewStyle, select: @escaping (FileBrowserViewStyle) -> Void) -> UIMenu {
+        section(FileBrowserViewStyle.menuCases.map { style in
+            UIAction(title: style.title, image: UIImage(systemName: style.systemImage), state: selected == style ? .on : .off) { _ in select(style) }
+        })
+    }
+
+    static func sorts<T: Equatable>(_ options: [T], selected: T, ascending: Bool,
+                                    title: (T) -> String, select: @escaping (T) -> Void) -> UIMenu {
+        section(options.map { sort in
+            let action = UIAction(title: title(sort), state: selected == sort ? .on : .off) { _ in select(sort) }
+            action.subtitle = selected == sort ? (ascending ? String(localized: "Ascending") : String(localized: "Descending")) : nil
+            return action
+        })
     }
 }
 
@@ -209,15 +208,20 @@ private enum HomeScrollTopAnchor {
     static let id = "home-scroll-top"
 }
 
-private enum HomePriorityLayoutMetrics {
+enum HomePriorityLayoutMetrics {
     static let textCardHeight: CGFloat = 88
     static let compactTextCardHeight: CGFloat = 74
-    static let imageOnlyCardHeight: CGFloat = 118
-    static let compactImageOnlyCardHeight: CGFloat = 96
     static let minimumColumnWidth: CGFloat = 156
     static let compactMinimumColumnWidth: CGFloat = 136
     static let iconSize: CGFloat = 44
     static let compactIconSize: CGFloat = 36
+
+    static func cardAspectRatio(contentWidth: CGFloat, compact: Bool) -> CGFloat {
+        let width = max(1, contentWidth - 32)
+        let minimum = compact ? compactMinimumColumnWidth : minimumColumnWidth
+        let columns = max(1, floor((width + 12) / (minimum + 12)))
+        return ((width - (columns - 1) * 12) / columns) / (compact ? compactTextCardHeight : textCardHeight)
+    }
 }
 
 private struct LibraryLoadingStatusView: View {
@@ -265,22 +269,22 @@ private struct LibraryLoadingStatusView: View {
 
     private var detailText: String {
         guard let progress else {
-            return "Preparing library scan"
+            return String(localized: "Preparing library scan")
         }
 
         switch progress.phase {
         case .preparing:
-            return "Preparing library scan"
+            return String(localized: "Preparing library scan")
         case .scanningFiles:
             if let total = progress.totalItemCount {
                 let percent = Int(((progress.fractionCompleted ?? 0) * 100).rounded())
-                return "\(percent)% complete - \(progress.completedItemCount) of \(total) items scanned"
+                return String(localized: "\(percent)% complete — scanned \(progress.completedItemCount) of \(total)")
             }
-            return "Scanning files"
+            return String(localized: "Scanning files")
         case .buildingIndex:
-            return "Building library"
+            return String(localized: "Building library")
         case .finishing:
-            return "Finishing library"
+            return String(localized: "Finishing library")
         }
     }
 }
@@ -363,7 +367,7 @@ struct HomeScreen: View {
             .textInputAutocapitalization(.never)
             .disableAutocorrection(true)
             .nativeDefaultDropDestination(
-                title: "Drop in Home",
+                title: String(localized: "Drop in Home"),
                 isTargeted: browserViewStyle != .desktop && activeFolderDropPath == AppFileRoot.documentsPath
             )
             .onPreferenceChange(NativeFolderDropFramePreferenceKey.self) { folderDropFrames = $0 }
@@ -458,7 +462,7 @@ struct HomeScreen: View {
                         LibraryLoadingStatusView(progress: container.libraryStore.loadingProgress)
                     } else {
                         CompatibleContentUnavailableView(
-                            vm.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "No Files" : "No Results",
+                            vm.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? String(localized: "No Files") : String(localized: "No Results"),
                             systemImage: "folder"
                         ) {
                             Text(homeEmptyStateDescription)
@@ -513,7 +517,7 @@ struct HomeScreen: View {
                                 .frame(maxWidth: .infinity)
                         } else {
                             CompatibleContentUnavailableView(
-                                vm.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "No Files" : "No Results",
+                                vm.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? String(localized: "No Files") : String(localized: "No Results"),
                                 systemImage: "folder"
                             ) {
                                 Text(homeEmptyStateDescription)
@@ -541,8 +545,8 @@ struct HomeScreen: View {
             librarySongs: container.libraryStore.librarySongs,
             storageContainerPath: AppFileRoot.documentsPath ?? "medio://desktop/home",
             filesystemContainerPath: AppFileRoot.documentsPath,
-            defaultDropTitle: "Drop in Home",
-            emptyTitle: vm.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "No Files" : "No Results",
+            defaultDropTitle: String(localized: "Drop in Home"),
+            emptyTitle: vm.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? String(localized: "No Files") : String(localized: "No Results"),
             emptySystemImage: "folder",
             isLoading: container.libraryStore.isLoading,
             loadingProgress: container.libraryStore.loadingProgress,
@@ -606,60 +610,22 @@ struct HomeScreen: View {
     }
 
     private var homeOptionsMenu: some View {
-        ToolbarGlassMenu(accessibilityLabel: "Home Options") {
-            Section {
-                Button("Select", systemImage: "checkmark.circle") {
-                    isSelecting = true
-                }
-
-                Button("New Folder", systemImage: "folder.badge.plus") {
-                    router.present(.createFolder(parentPath: nil))
-                }
-
-                Button("Import Files", systemImage: "square.and.arrow.down") {
-                    Task { await importFilesFromPicker() }
-                }
-
-                Button("Settings", systemImage: "gearshape") {
-                    router.present(.settings)
-                }
-            }
-
-            Section("View") {
-                ForEach(FileBrowserViewStyle.menuCases, id: \.self) { style in
-                    Button {
-                        browserViewStyle = style
-                    } label: {
-                        MenuOptionLabel(
-                            title: style.title,
-                            systemImage: style.systemImage,
-                            isSelected: browserViewStyle == style
-                        )
-                    }
-                }
-            }
-
-            Section("Sort By") {
-                ForEach(HomeSortBy.menuCases, id: \.self) { sort in
-                    Button {
-                        applySort(sort)
-                    } label: {
-                        SortMenuOptionLabel(
-                            title: sort.title,
-                            isSelected: container.settingsStore.homeSortBy == sort,
-                            detail: sortDirection(for: sort)
-                        )
-                    }
-                }
-            }
-
-            Section {
-                Button("View Options", systemImage: "slider.horizontal.3") {
-                    showViewOptions = true
-                }
-            }
+        NativeBrowserOptionsMenu(accessibilityLabel: String(localized: "Home Options")) {
+            UIMenu(children: [
+                BrowserOptionsMenu.section([
+                    BrowserOptionsMenu.action("Select", "checkmark.circle") { isSelecting = true },
+                    BrowserOptionsMenu.action(String(localized: "New Folder"), "folder.badge.plus") { router.present(.createFolder(parentPath: nil)) },
+                    BrowserOptionsMenu.action("Import Files", "square.and.arrow.down") { Task { await importFilesFromPicker() } },
+                    BrowserOptionsMenu.action("Settings", "gearshape") { router.present(.settings) }
+                ]),
+                BrowserOptionsMenu.views(selected: browserViewStyle) { browserViewStyle = $0 },
+                BrowserOptionsMenu.sorts(HomeSortBy.menuCases, selected: container.settingsStore.homeSortBy,
+                    ascending: container.settingsStore.homeSortAscending, title: { $0.title }, select: applySort),
+                BrowserOptionsMenu.section([BrowserOptionsMenu.action("View Options", "slider.horizontal.3") { showViewOptions = true }])
+            ])
         }
     }
+
 
     @ViewBuilder
     private func libraryButton(for item: FileInfo) -> some View {
@@ -770,26 +736,26 @@ struct HomeScreen: View {
     private func homeItemMenu(for item: FileInfo) -> UIMenu {
         if MedioShadowFolder.isFavorites(item.id) {
             return UIMenu(children: [
-                UIAction(title: "About Favorites", image: UIImage(systemName: "star")) { _ in
+                UIAction(title: String(localized: "About Favorites"), image: UIImage(systemName: "star")) { _ in
                     router.present(.favoritesAbout)
                 }
             ])
         }
 
         var actions: [UIMenuElement] = [
-            UIAction(title: "Select", image: UIImage(systemName: "checkmark.circle")) { _ in
+            UIAction(title: String(localized: "Select"), image: UIImage(systemName: "checkmark.circle")) { _ in
                 isSelecting = true
                 selectedItemIDs = [item.id]
             },
             UIAction(title: item.medioAboutActionTitle, image: UIImage(systemName: "info.circle")) { _ in
                 router.present(.fileAbout(path: item.id))
             },
-            UIAction(title: "Move", image: UIImage(systemName: "folder")) { _ in
+            UIAction(title: String(localized: "Move"), image: UIImage(systemName: "folder")) { _ in
                 router.presentMoveItems([item.id])
             }
         ]
         if !selectedMovableIDs.isEmpty {
-            actions.append(UIAction(title: "Move Selected", image: UIImage(systemName: "folder.badge.person.crop")) { _ in
+            actions.append(UIAction(title: String(localized: "Move Selected"), image: UIImage(systemName: "folder.badge.person.crop")) { _ in
                 router.presentMoveItems(selectedMovableIDs)
             })
         }
@@ -800,10 +766,6 @@ struct HomeScreen: View {
         container.settingsStore.selectSort(sort)
     }
 
-    private func sortDirection(for sort: HomeSortBy) -> String? {
-        guard container.settingsStore.homeSortBy == sort else { return nil }
-        return container.settingsStore.homeSortAscending ? "Ascending" : "Descending"
-    }
 
     private func priorityButton(for slot: HomePrioritySlot) -> some View {
         let item = priorityMovableItem(for: slot)
@@ -839,7 +801,7 @@ struct HomeScreen: View {
             .accessibilityLabel(priorityAccessibilityLabel(for: slot))
             .environment(\.medioUsesCompactRootChrome, usesCompactChrome)
         }
-        .frame(height: priorityCardHeight(for: slot), alignment: .top)
+        .frame(height: priorityCardHeight, alignment: .top)
         .background {
             // Keep glass in the grid's SwiftUI hierarchy, outside the per-card UIKit hosts.
             if !isPrioritySlotImageOnly(slot) {
@@ -855,15 +817,8 @@ struct HomeScreen: View {
         )
     }
 
-    private func priorityCardHeight(for slot: HomePrioritySlot) -> CGFloat {
-        if isPrioritySlotImageOnly(slot) {
-            return usesCompactChrome
-                ? HomePriorityLayoutMetrics.compactImageOnlyCardHeight
-                : HomePriorityLayoutMetrics.imageOnlyCardHeight
-        }
-        return usesCompactChrome
-            ? HomePriorityLayoutMetrics.compactTextCardHeight
-            : HomePriorityLayoutMetrics.textCardHeight
+    private var priorityCardHeight: CGFloat {
+        usesCompactChrome ? HomePriorityLayoutMetrics.compactTextCardHeight : HomePriorityLayoutMetrics.textCardHeight
     }
 
     private func openPrioritySlot(_ slot: HomePrioritySlot) {
@@ -881,7 +836,7 @@ struct HomeScreen: View {
     private func priorityMenu(for slot: HomePrioritySlot) -> UIMenu {
         switch slot.content {
         case .favorites:
-            return UIMenu(children: [UIAction(title: "About Favorites", image: UIImage(systemName: "star")) { _ in
+            return UIMenu(children: [UIAction(title: String(localized: "About Favorites"), image: UIImage(systemName: "star")) { _ in
                 router.present(.favoritesAbout)
             }])
         case .folder(let item, let storageSlot):
@@ -889,14 +844,14 @@ struct HomeScreen: View {
                 UIAction(title: item.medioAboutActionTitle, image: UIImage(systemName: "info.circle")) { _ in
                     router.present(.fileAbout(path: item.id))
                 },
-                UIAction(title: "Change Folder", image: UIImage(systemName: "folder")) { _ in
+                UIAction(title: String(localized: "Change Folder"), image: UIImage(systemName: "folder")) { _ in
                     router.present(.priorityFolderPicker(slot: storageSlot))
                 },
-                UIAction(title: "Make Image", image: UIImage(systemName: "photo")) { _ in
+                UIAction(title: String(localized: "Make Image"), image: UIImage(systemName: "photo")) { _ in
                     router.present(.prioritySlotAbout(slot: storageSlot))
                 },
                 UIAction(
-                    title: "Remove",
+                    title: String(localized: "Remove"),
                     image: UIImage(systemName: "pin.slash"),
                     attributes: .destructive
                 ) { _ in
@@ -904,28 +859,28 @@ struct HomeScreen: View {
                 }
             ]
             if container.settingsStore.isPrioritySlotImageOnly(storageSlot) {
-                actions.insert(UIAction(title: "Show Folder Card", image: UIImage(systemName: "folder")) { _ in
+                actions.insert(UIAction(title: String(localized: "Show Folder Card"), image: UIImage(systemName: "folder")) { _ in
                     container.settingsStore.setPrioritySlotImageOnly(false, at: storageSlot)
                 }, at: 3)
             }
             return UIMenu(children: actions)
         case .empty(let storageSlot):
             var actions: [UIMenuElement] = [
-                UIAction(title: "Choose Folder", image: UIImage(systemName: "folder")) { _ in
+                UIAction(title: String(localized: "Choose Folder"), image: UIImage(systemName: "folder")) { _ in
                     router.present(.priorityFolderPicker(slot: storageSlot))
                 },
-                UIAction(title: "Make Image", image: UIImage(systemName: "photo")) { _ in
+                UIAction(title: String(localized: "Make Image"), image: UIImage(systemName: "photo")) { _ in
                     router.present(.prioritySlotAbout(slot: storageSlot))
                 }
             ]
             if container.settingsStore.isPrioritySlotImageOnly(storageSlot) {
-                actions.append(UIAction(title: "Show Folder Card", image: UIImage(systemName: "folder")) { _ in
+                actions.append(UIAction(title: String(localized: "Show Folder Card"), image: UIImage(systemName: "folder")) { _ in
                     container.settingsStore.setPrioritySlotImageOnly(false, at: storageSlot)
                 })
             }
             if container.settingsStore.prioritySlotArtworkPath(at: storageSlot) != nil {
                 actions.append(UIAction(
-                    title: "Remove",
+                    title: String(localized: "Remove"),
                     image: UIImage(systemName: "pin.slash"),
                     attributes: .destructive
                 ) { _ in
@@ -943,7 +898,7 @@ struct HomeScreen: View {
         case .folder(let item, _):
             return item.displayName
         case .empty(let storageSlot):
-            return "Choose priority folder \(storageSlot + 2)"
+            return String(localized: "Choose priority folder \(storageSlot + 2)")
         }
     }
 
@@ -995,23 +950,23 @@ struct HomeScreen: View {
 
     private var homeEmptyStateDescription: String {
         if !vm.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-            return "No file, album, artist, or folder matches this search."
+            return String(localized: "No file, album, artist, or folder matches this search.")
         }
 
         if let error = container.libraryStore.lastStorageScanError {
-            return "Storage refresh failed: \(error)"
+            return String(localized: "Storage refresh failed: \(error)")
         }
 
         if let summary = container.libraryStore.lastStorageScanSummary {
             if summary.scannedItemCount == 0 {
-                return "Storage was scanned, but Medio found no files in On My iPhone > Medio."
+                return String(localized: "Storage was scanned, but Medio found no files in On My iPhone > Medio.")
             }
             if summary.visibleHomeItemCount == 0 {
-                return "Storage was scanned and \(summary.scannedItemCount) item(s) were found, but none are visible on Home."
+                return String(localized: "Storage was scanned and \(summary.scannedItemCount) items were found, but none are visible on Home.")
             }
         }
 
-        return "Put files in On My iPhone > Medio, then pull down to refresh storage."
+        return String(localized: "Put files in On My iPhone > Medio, then pull down to refresh storage.")
     }
 
     private func dragProvider(for item: FileInfo) -> NSItemProvider {
@@ -1050,7 +1005,7 @@ struct HomeScreen: View {
             )
             let importedURLs = try await ImportDocumentsUseCase().execute(urls: urls)
             guard !importedURLs.isEmpty else {
-                moveStatusMessage = "No files were imported."
+                moveStatusMessage = String(localized: "No files were imported.")
                 showMoveStatus = true
                 return
             }
@@ -1082,7 +1037,7 @@ struct HomeScreen: View {
         do {
             let result = try await FileMoveService().moveBatch(paths: paths, toFolder: destinationPath)
             guard !result.completed.isEmpty else {
-                moveStatusMessage = result.failures.first?.message ?? "These items cannot be moved to that folder."
+                moveStatusMessage = result.failures.first?.message ?? String(localized: "These items cannot be moved to that folder.")
                 showMoveStatus = true
                 return
             }
@@ -1096,7 +1051,7 @@ struct HomeScreen: View {
                 isSelecting = false
             }
             if let failure = result.failures.first {
-                moveStatusMessage = "Some items were not moved: \(failure.message)"
+                moveStatusMessage = String(localized: "Some items were not moved: \(failure.message)")
                 showMoveStatus = true
             }
         } catch {
@@ -1152,6 +1107,7 @@ struct FileBrowserIconTile: View {
             }
         }
         .opacity(isSelecting && !isMovable ? 0.62 : 1)
+        .playbackQueueProgress(for: item.id)
     }
 
     private var subtitle: String {
@@ -1164,8 +1120,10 @@ struct FileBrowserIconTile: View {
         return item.localizedTypeDescription ?? item.fileType.rawValue
     }
 
+    @AppStorage(PlaybackIndicatorScope.key) private var indicatorScopes = PlaybackIndicatorScope.all
+
     private var showsNowPlayingVisualizer: Bool {
-        item.fileType == .music && playbackStore.nowPlaying?.id == item.id
+        indicatorScopes & PlaybackIndicatorScope.songs.rawValue != 0 && item.fileType == .music && playbackStore.nowPlaying?.id == item.id
     }
 
     @ViewBuilder
@@ -1672,7 +1630,7 @@ func importDroppedFiles(
         group.enter()
         provider.loadFileRepresentation(forTypeIdentifier: UTType.fileURL.identifier) { sourceURL, error in
             guard let sourceURL, error == nil else {
-                state.record(error: error ?? droppedFileImportError("The dropped file could not be opened."))
+                state.record(error: error ?? droppedFileImportError(String(localized: "The dropped file could not be opened.")))
                 group.leave()
                 return
             }
@@ -1698,7 +1656,7 @@ func importDroppedFiles(
         if !importedURLs.isEmpty {
             onComplete(.success(importedURLs))
         } else {
-            onComplete(.failure(firstError ?? droppedFileImportError("The dropped files could not be imported.")))
+            onComplete(.failure(firstError ?? droppedFileImportError(String(localized: "The dropped files could not be imported."))))
         }
     }
     return true
@@ -1837,9 +1795,9 @@ struct MultiItemDragPreview: View {
     }
 
     private var title: String {
-        guard let first = paths.first else { return "Item" }
+        guard let first = paths.first else { return String(localized: "Item") }
         let name = URL(fileURLWithPath: first).lastPathComponent
-        return name.isEmpty ? "Item" : name
+        return name.isEmpty ? String(localized: "Item") : name
     }
 
     private var iconName: String {
@@ -2810,17 +2768,16 @@ private struct HomePrioritySlotCard: View {
     var body: some View {
         Group {
             if let imageOnlyArtwork {
-                Image(uiImage: imageOnlyArtwork)
-                    .interpolation(.high)
-                    .resizable()
-                    .aspectRatio(contentMode: .fill)
-                    .frame(
-                        maxWidth: .infinity,
-                        minHeight: imageOnlyCardHeight,
-                        maxHeight: imageOnlyCardHeight
-                    )
-                    .clipped()
-                    .clipShape(RoundedRectangle(cornerRadius: 8))
+                GeometryReader { proxy in
+                    Image(uiImage: imageOnlyArtwork)
+                        .resizable()
+                        .interpolation(.high)
+                        .scaledToFill()
+                        .frame(width: proxy.size.width, height: proxy.size.height)
+                        .clipped()
+                }
+                .frame(height: textCardHeight)
+                .clipShape(RoundedRectangle(cornerRadius: usesCompactChrome ? 14 : 16))
             } else {
                 HStack(alignment: .top, spacing: usesCompactChrome ? 8 : 10) {
                     artwork
@@ -2867,11 +2824,6 @@ private struct HomePrioritySlotCard: View {
             : HomePriorityLayoutMetrics.textCardHeight
     }
 
-    private var imageOnlyCardHeight: CGFloat {
-        usesCompactChrome
-            ? HomePriorityLayoutMetrics.compactImageOnlyCardHeight
-            : HomePriorityLayoutMetrics.imageOnlyCardHeight
-    }
 
     private var iconSize: CGFloat {
         usesCompactChrome
@@ -2924,19 +2876,19 @@ private struct HomePrioritySlotCard: View {
         case .folder(let item, _):
             return item.displayName
         case .empty:
-            return "Choose Folder"
+            return String(localized: "Choose Folder")
         }
     }
 
     private var subtitle: String {
         switch slot.content {
         case .favorites:
-            return "Favorite songs"
+            return String(localized: "Favorite songs")
         case .folder(let item, _):
             let count = fileCount(in: item.id)
-            return "\(count) file\(count == 1 ? "" : "s") inside"
+            return String(localized: "\(count) files inside")
         case .empty(let storageSlot):
-            return "Priority \(storageSlot + 2)"
+            return String(localized: "Priority \(storageSlot + 2)")
         }
     }
 
@@ -3059,7 +3011,7 @@ struct LibraryScreen: View {
 
             if vm.filteredArtists.isEmpty && vm.filteredAlbums.isEmpty && vm.filteredSongs.isEmpty {
                 CompatibleContentUnavailableView(
-                    vm.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Library Empty" : "No Results",
+                    vm.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? String(localized: "Library Empty") : String(localized: "No Results"),
                     systemImage: "books.vertical"
                 )
             }
@@ -3111,42 +3063,20 @@ struct LibraryScreen: View {
     }
 
     private var libraryOptionsMenu: some View {
-        ToolbarGlassMenu(accessibilityLabel: "Library Options") {
-            Section {
-                Button("Select", systemImage: "checkmark.circle") {
-                    isSelecting = true
-                }
-                .disabled(vm.filteredSongs.isEmpty)
-
-                Button("New Folder", systemImage: "folder.badge.plus") {
-                    router.present(.createFolder(parentPath: nil))
-                }
-
-                Button("Import Files", systemImage: "square.and.arrow.down") {
-                    Task { await importFilesFromPicker() }
-                }
-                .disabled(isImporting)
-
-                Button("Settings", systemImage: "gearshape") {
-                    router.present(.settings)
-                }
-            }
-
-            Section("Sort By") {
-                ForEach(HomeSortBy.menuCases, id: \.self) { sort in
-                    Button {
-                        applySort(sort)
-                    } label: {
-                        SortMenuOptionLabel(
-                            title: sort.title,
-                            isSelected: container.settingsStore.homeSortBy == sort,
-                            detail: librarySortDirection(for: sort)
-                        )
-                    }
-                }
-            }
+        NativeBrowserOptionsMenu(accessibilityLabel: String(localized: "Library Options")) {
+            UIMenu(children: [
+                BrowserOptionsMenu.section([
+                    BrowserOptionsMenu.action("Select", "checkmark.circle", enabled: !vm.filteredSongs.isEmpty) { isSelecting = true },
+                    BrowserOptionsMenu.action(String(localized: "New Folder"), "folder.badge.plus") { router.present(.createFolder(parentPath: nil)) },
+                    BrowserOptionsMenu.action("Import Files", "square.and.arrow.down", enabled: !isImporting) { Task { await importFilesFromPicker() } },
+                    BrowserOptionsMenu.action("Settings", "gearshape") { router.present(.settings) }
+                ]),
+                BrowserOptionsMenu.sorts(HomeSortBy.menuCases, selected: container.settingsStore.homeSortBy,
+                    ascending: container.settingsStore.homeSortAscending, title: { $0.title }, select: applySort)
+            ])
         }
     }
+
 
     private func toggleSelection(for song: FileInfo) {
         if selectedItemIDs.contains(song.id) {
@@ -3160,15 +3090,7 @@ struct LibraryScreen: View {
         container.settingsStore.selectSort(sort)
     }
 
-    private func homeSortDirection(for sort: HomeSortBy) -> String? {
-        guard container.settingsStore.homeSortBy == sort else { return nil }
-        return container.settingsStore.homeSortAscending ? "Ascending" : "Descending"
-    }
 
-    private func librarySortDirection(for sort: HomeSortBy) -> String? {
-        guard container.settingsStore.homeSortBy == sort else { return nil }
-        return container.settingsStore.homeSortAscending ? "Ascending" : "Descending"
-    }
 
     private func importFilesFromPicker() async {
         isImporting = true
@@ -3180,7 +3102,7 @@ struct LibraryScreen: View {
             )
             let importedURLs = try await ImportDocumentsUseCase().execute(urls: urls)
             guard !importedURLs.isEmpty else {
-                importStatusMessage = "No files were imported."
+                importStatusMessage = String(localized: "No files were imported.")
                 showImportStatus = true
                 return
             }
@@ -3305,12 +3227,12 @@ struct SearchScreen: View {
     }
 
     private var emptySearchTitle: String {
-        if enabledCategories.isEmpty { return "No Categories Selected" }
-        return vm.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "Search Library" : "No Results"
+        if enabledCategories.isEmpty { return String(localized: "No Categories Selected") }
+        return vm.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? String(localized: "Search Library") : String(localized: "No Results")
     }
 
     private var searchOptionsMenu: some View {
-        ToolbarGlassMenu(accessibilityLabel: "Search Options") {
+        ToolbarGlassMenu(accessibilityLabel: String(localized: "Search Options")) {
             Section("Search Categories") {
                 ForEach(SearchResultCategory.allCases) { category in
                     Toggle(category.title, isOn: categoryBinding(category))
@@ -3351,7 +3273,11 @@ private enum SearchResultCategory: String, CaseIterable, Identifiable {
     var id: Self { self }
 
     var title: String {
-        rawValue.capitalized
+        switch self {
+        case .artists: String(localized: "Artists")
+        case .albums: String(localized: "Albums")
+        case .songs: String(localized: "Songs")
+        }
     }
 }
 
@@ -3434,7 +3360,7 @@ struct PlaygroundScreen: View {
         .compatibleRootPageTitle("Playground", isCollapsed: isRootTitleCollapsed)
         .toolbar {
             CircularTrailingToolbarItem {
-                ToolbarGlassButton(systemImage: "gearshape", accessibilityLabel: "Settings") {
+                ToolbarGlassButton(systemImage: "gearshape", accessibilityLabel: String(localized: "Settings")) {
                     router.present(.settings)
                 }
             }
@@ -3549,12 +3475,12 @@ struct MiniPlayerBar: View {
             artwork
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(playbackStore.nowPlaying?.title ?? "Not Playing")
+                Text(playbackStore.nowPlaying?.title ?? String(localized: "Not Playing"))
                     .font(.subheadline.weight(.semibold))
                     .foregroundStyle(.primary)
                     .lineLimit(1)
                     .multilineTextAlignment(.leading)
-                Text(playbackStore.nowPlaying?.artist ?? "Queue ready")
+                Text(playbackStore.nowPlaying?.artist ?? String(localized: "Queue ready"))
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
@@ -3587,12 +3513,12 @@ struct MiniPlayerBar: View {
                     artwork
 
                     VStack(alignment: .leading, spacing: 2) {
-                        Text(playbackStore.nowPlaying?.title ?? "Not Playing")
+                        Text(playbackStore.nowPlaying?.title ?? String(localized: "Not Playing"))
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(.primary)
                             .lineLimit(1)
                             .multilineTextAlignment(.leading)
-                        Text(playbackStore.nowPlaying?.artist ?? "Queue ready")
+                        Text(playbackStore.nowPlaying?.artist ?? String(localized: "Queue ready"))
                             .font(.caption)
                             .foregroundStyle(.secondary)
                             .lineLimit(1)

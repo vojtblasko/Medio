@@ -18,6 +18,7 @@ final class AppContainer: ObservableObject {
     let lyricsFileAssociationRepository: LyricsFileAssociationRepository
     let visualMetadataOverridesRepository: VisualMetadataOverridesRepository
     let customSongColorsRepository: CustomSongColorsRepository
+    let audioSharing: LocalAudioSharing
     let playbackService: PlaybackService
 
     let systemUIPresenter: SystemUIPresenter
@@ -47,6 +48,7 @@ final class AppContainer: ObservableObject {
             ? InMemoryPlaybackService(store: playbackStore)
             : AudioPlaybackService()
         playbackStore.connect(playbackService: playbackService)
+        audioSharing = LocalAudioSharing(playbackStore: playbackStore)
 
         let repository: MediaLibraryRepository = AppRuntime.isUITesting
             ? UITestMediaLibraryRepository()

@@ -24,6 +24,14 @@ jobs:
       - name: Build current SDK
         run: xcodebuild build-for-testing -project Medio.xcodeproj -scheme Medio -testPlan Medio -destination "platform=iOS Simulator,id=$SIMULATOR_ID" SWIFT_VERSION=6 CODE_SIGNING_ALLOWED=NO
       - name: Run unit tests
-        run: xcodebuild test-without-building -project Medio.xcodeproj -scheme Medio -testPlan Medio -destination "platform=iOS Simulator,id=$SIMULATOR_ID" -only-testing:MedioTests CODE_SIGNING_ALLOWED=NO
+        run: xcodebuild test-without-building -project Medio.xcodeproj -scheme Medio -testPlan Medio -destination "platform=iOS Simulator,id=$SIMULATOR_ID" -only-testing:MedioTests -resultBundlePath "$RUNNER_TEMP/MedioUnitTests.xcresult" CODE_SIGNING_ALLOWED=NO
       - name: Run UI tests
-        run: xcodebuild test-without-building -project Medio.xcodeproj -scheme Medio -testPlan Medio -destination "platform=iOS Simulator,id=$SIMULATOR_ID" -only-testing:MedioUITests CODE_SIGNING_ALLOWED=NO
+        run: xcodebuild test-without-building -project Medio.xcodeproj -scheme Medio -testPlan Medio -destination "platform=iOS Simulator,id=$SIMULATOR_ID" -only-testing:MedioUITests -resultBundlePath "$RUNNER_TEMP/MedioUITests.xcresult" CODE_SIGNING_ALLOWED=NO
+      - name: Upload failed test results
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: failed-test-results
+          path: ${{ runner.temp }}/Medio*Tests.xcresult
+          if-no-files-found: ignore
+          retention-days: 3

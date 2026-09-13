@@ -11,11 +11,11 @@ enum EditableMetadataField: String, CaseIterable, Identifiable {
 
     var label: String {
         switch self {
-        case .title: return "Title"
+        case .title: return String(localized: "Title")
         case .artist: return "Artist"
-        case .album: return "Album"
-        case .genre: return "Genre"
-        case .year: return "Year"
+        case .album: return String(localized: "Album")
+        case .genre: return String(localized: "Genre")
+        case .year: return String(localized: "Year")
         }
     }
 }
@@ -33,7 +33,7 @@ struct EditMetadataView: View {
         self.filePaths = [filePath]
         self.fields = EditableMetadataField.allCases
         self.defaultValues = [:]
-        self.title = "Edit Metadata"
+        self.title = String(localized: "Edit Metadata")
         _override = State(initialValue: currentOverride ?? VisualMetadataOverride())
     }
 

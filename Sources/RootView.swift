@@ -225,6 +225,7 @@ struct RootView: View {
         GeometryReader { proxy in
             rootContent
                 .environment(\.medioUsesCompactRootChrome, usesCompactRootChrome(for: proxy.size))
+                .environment(\.medioRootContentWidth, proxy.size.width)
         }
     }
 
@@ -332,6 +333,7 @@ struct RootView: View {
         }
         .onChange(of: scenePhase) { phase in
             guard phase == .background else { return }
+            container.audioSharing.stop()
             Task {
                 await container.settingsStore.flushPersistence()
                 await playbackEventsVM.flushListeningHistory()
@@ -566,7 +568,7 @@ struct RootView: View {
                         ?? container.libraryStore.homeItems.first { $0.id == path },
                     container: container,
                     nowPlayingVM: nowPlayingVM,
-                    titleOverride: "About Priority Folder"
+                    titleOverride: String(localized: "About Priority Folder")
                 )
             }
         case .prioritySlotAbout(let slot):

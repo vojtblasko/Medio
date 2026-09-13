@@ -554,6 +554,10 @@ final class HomeViewModel: ScreenViewModel {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _, _, _, _ in self?.scheduleRecompute() }
             .store(in: &cancellables)
+        settingsStore.$favoritesPriorityFolderEnabled
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.scheduleRecompute() }
+            .store(in: &cancellables)
         settingsStore.$favoritesHomeFolderEnabled
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in self?.scheduleRecompute() }
@@ -629,7 +633,7 @@ final class HomeViewModel: ScreenViewModel {
     private func homeItemsIncludingFavoritesShadow() -> [FileInfo] {
         var items = libraryStore.homeItems
         if settingsStore.favoritesHomeFolderEnabled,
-           settingsStore.priorityFoldersCount == 0,
+           !(settingsStore.priorityFoldersCount > 0 && settingsStore.favoritesPriorityFolderEnabled),
            !libraryStore.favorites.isEmpty {
             items.append(MedioShadowFolder.favorites)
         }
@@ -639,7 +643,7 @@ final class HomeViewModel: ScreenViewModel {
     private func makePrioritySlots() -> [HomePrioritySlot] {
         guard settingsStore.priorityFoldersCount > 0 else { return [] }
         var slots: [HomePrioritySlot]
-        if settingsStore.favoritesHomeFolderEnabled {
+        if settingsStore.favoritesPriorityFolderEnabled {
             slots = [HomePrioritySlot(content: .favorites)]
         } else if let path = settingsStore.priorityFolderPath(at: -1),
                   let folder = folderInfo(for: path) {
@@ -1408,41 +1412,34 @@ final class QueueViewModel: ScreenViewModel {
 
     func play(at index: Int) async {
         guard index >= 0, index < queue.count else { return }
-        await playbackService.setQueue(queue, startAt: index)
+        await playbackService.updateQueue(queue, currentIndex: index, preservingCurrentItem: false)
         await playbackService.play()
         syncFromStore()
     }
 
     func remove(at offsets: IndexSet) async {
-        var updated = queue
-        for offset in offsets.sorted(by: >) where offset >= 0 && offset < updated.count {
-            updated.remove(at: offset)
-        }
-        let safeIndex = min(max(currentIndex ?? 0, 0), max(updated.count - 1, 0))
-        await playbackService.setQueue(updated, startAt: safeIndex)
+        syncFromStore()
+        let retained = queue.indices.filter { !offsets.contains($0) }
+        guard retained.count != queue.count else { return }
+        let oldIndex = currentIndex ?? 0
+        let newIndex = retained.firstIndex(of: oldIndex)
+            ?? retained.firstIndex(where: { $0 > oldIndex })
+            ?? max(retained.count - 1, 0)
+        await playbackService.updateQueue(retained.map { queue[$0] }, currentIndex: newIndex,
+                                          preservingCurrentItem: retained.contains(oldIndex))
         syncFromStore()
     }
 
     func move(from offsets: IndexSet, to destination: Int) async {
-        let validOffsets = offsets.filter { queue.indices.contains($0) }.sorted()
-        guard !validOffsets.isEmpty else { return }
-
-        let movedItems = validOffsets.map { queue[$0] }
-        var updated = queue
-        for offset in validOffsets.reversed() {
-            updated.remove(at: offset)
-        }
-
-        let removedBeforeDestination = validOffsets.filter { $0 < destination }.count
-        let insertionIndex = min(max(destination - removedBeforeDestination, 0), updated.count)
-        updated.insert(contentsOf: movedItems, at: insertionIndex)
-
-        let currentID = nowPlaying?.id
-        let newCurrentIndex = currentID.flatMap { id in
-            updated.firstIndex(where: { $0.id == id })
-        } ?? min(max(currentIndex ?? 0, 0), max(updated.count - 1, 0))
-
-        await playbackService.setQueue(updated, startAt: newCurrentIndex)
+        syncFromStore()
+        let moved = queue.indices.filter { offsets.contains($0) }
+        guard !moved.isEmpty else { return }
+        var order = queue.indices.filter { !offsets.contains($0) }
+        let insertionIndex = min(max(destination - moved.filter { $0 < destination }.count, 0), order.count)
+        order.insert(contentsOf: moved, at: insertionIndex)
+        let newIndex = order.firstIndex(of: currentIndex ?? 0) ?? 0
+        await playbackService.updateQueue(order.map { queue[$0] }, currentIndex: newIndex,
+                                          preservingCurrentItem: true)
         syncFromStore()
     }
 
