@@ -317,12 +317,8 @@ struct FavoritesPanel: View {
         .textInputAutocapitalization(.never)
         .disableAutocorrection(true)
         .navigationTitle("Favorites")
-        .toolbar {
-            CircularTrailingToolbarItem {
-                favoritesOptionsMenu
-            }
-        }
-        .sheet(isPresented: $showViewOptions) {
+        .browserOptionsToolbar { favoritesOptionsMenu }
+        .fullScreenCover(isPresented: $showViewOptions) {
             FileBrowserViewOptionsPanel(iconSize: $browserIconSize)
         }
     }
@@ -581,7 +577,7 @@ struct FileAboutPanel: View {
             .navigationTitle(aboutTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { aboutToolbar }
-            .sheet(isPresented: $showEditMetadata, onDismiss: {
+            .fullScreenCover(isPresented: $showEditMetadata, onDismiss: {
                 loadOverride()
                 nowPlayingVM.syncFromStore()
             }) {
@@ -593,7 +589,7 @@ struct FileAboutPanel: View {
                     fields: editableFields
                 )
             }
-            .sheet(item: $pendingCoverCrop) { pending in
+            .fullScreenCover(item: $pendingCoverCrop) { pending in
                 CoverImageCropSheet(
                     image: pending.image,
                     onCancel: { pendingCoverCrop = nil },
@@ -603,7 +599,7 @@ struct FileAboutPanel: View {
                     }
                 )
             }
-            .sheet(isPresented: $showFolderColorSheet) {
+            .fullScreenCover(isPresented: $showFolderColorSheet) {
                 FolderColorPickerSheet(
                     initialColor: currentFolderColor,
                     hasSavedColor: metadataOverride?.folderColorRgba != nil,
@@ -1218,7 +1214,7 @@ struct FolderPanel: View {
         .disableAutocorrection(true)
         .navigationTitle(folderTitle)
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar { folderToolbar }
+        .browserOptionsToolbar(showsSelection: isSelecting) { folderToolbar }
         .alert("Move", isPresented: $showMoveStatus) {
             Button("OK", role: .cancel) { }
         } message: {
@@ -1227,7 +1223,7 @@ struct FolderPanel: View {
         .onAppear {
             MedioLastOpenedStore.record(path)
         }
-        .sheet(isPresented: $showViewOptions) {
+        .fullScreenCover(isPresented: $showViewOptions) {
             FileBrowserViewOptionsPanel(iconSize: $browserIconSize)
         }
     }
@@ -1314,9 +1310,9 @@ struct FolderPanel: View {
     }
 
 
-    @ToolbarContentBuilder
-    private var folderToolbar: some ToolbarContent {
-        ToolbarItemGroup(placement: .navigationBarTrailing) {
+    @ViewBuilder
+    private var folderToolbar: some View {
+        Group {
             if isSelecting {
                 Button("Move") {
                     router.presentMoveItems(selectedMovableIDs)
@@ -1677,7 +1673,7 @@ struct PrioritySlotAboutPanel: View {
             }
             Button("Cancel", role: .cancel) {}
         }
-        .sheet(item: $pendingCoverCrop) { pending in
+        .fullScreenCover(item: $pendingCoverCrop) { pending in
             CoverImageCropSheet(
                 image: pending.image,
                 aspectRatio: cardAspectRatio,
@@ -1991,6 +1987,7 @@ private struct AlbumHeaderArtwork: View {
     private let artworkCache: ArtworkCache = .shared
     @State private var representativeOverride: VisualMetadataOverride?
     @State private var artworkRevision = 0
+    @State private var fullResolutionArtwork: UIImage?
 
     private var representativePath: String? {
         songs.first?.id
@@ -2001,7 +1998,7 @@ private struct AlbumHeaderArtwork: View {
             return image
         }
         guard let path = representativePath else { return nil }
-        return artworkCache.image(for: path)
+        return fullResolutionArtwork ?? artworkCache.image(for: path)
     }
 
     var body: some View {
@@ -2035,7 +2032,14 @@ private struct AlbumHeaderArtwork: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(.systemBackground))
-        .onAppear(perform: loadOverride)
+        .task(id: representativePath) {
+            loadOverride()
+            fullResolutionArtwork = nil
+            guard let path = representativePath else { return }
+            let image = await ArtworkCache.extractArtwork(for: path)
+            guard !Task.isCancelled else { return }
+            fullResolutionArtwork = image
+        }
         .onReceive(NotificationCenter.default.publisher(for: .medioVisualMetadataOverridesDidChange)) { _ in
             loadOverride()
         }
@@ -2091,7 +2095,6 @@ private struct AlbumTrackRow: View {
             }
         }
         .padding(.vertical, displayTrackNumber == nil ? 0 : 4)
-        .playbackQueueProgress(for: item.id)
     }
 
     private var displayTrackNumber: String? {
@@ -2198,7 +2201,7 @@ struct AlbumAboutPanel: View {
             }
         }
         .navigationTitle("About \(name)")
-        .sheet(isPresented: $showEditMetadata, onDismiss: loadOverride) {
+        .fullScreenCover(isPresented: $showEditMetadata, onDismiss: loadOverride) {
             EditMetadataView(
                 title: "Edit \(name)",
                 filePaths: filePaths,
@@ -2212,7 +2215,7 @@ struct AlbumAboutPanel: View {
                 fields: [.album, .artist, .genre, .year]
             )
         }
-        .sheet(item: $pendingCoverCrop) { pending in
+        .fullScreenCover(item: $pendingCoverCrop) { pending in
             CoverImageCropSheet(
                 image: pending.image,
                 onCancel: { pendingCoverCrop = nil },
@@ -2559,7 +2562,7 @@ struct ArtistAboutPanel: View {
             }
         }
         .navigationTitle("About Artist")
-        .sheet(isPresented: $showEditMetadata, onDismiss: loadOverride) {
+        .fullScreenCover(isPresented: $showEditMetadata, onDismiss: loadOverride) {
             EditMetadataView(
                 title: String(localized: "Edit Artist"),
                 filePaths: filePaths,
@@ -2572,7 +2575,7 @@ struct ArtistAboutPanel: View {
                 fields: [.artist, .genre, .year]
             )
         }
-        .sheet(item: $pendingCoverCrop) { pending in
+        .fullScreenCover(item: $pendingCoverCrop) { pending in
             CoverImageCropSheet(
                 image: pending.image,
                 onCancel: { pendingCoverCrop = nil },

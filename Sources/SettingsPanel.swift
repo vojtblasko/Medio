@@ -182,14 +182,12 @@ struct SettingsPanel: View {
                         .accessibilityIdentifier("settings_internet_access")
 
                     ForEach(OnlineFeature.allCases) { feature in
-                        Toggle(isOn: Binding(get: { onlineAccess.isEnabled(feature) }, set: { onlineAccess.setEnabled($0, for: feature) })) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text(feature.title)
-                                Text("Transferred: \(ByteCountFormatter.string(fromByteCount: onlineAccess.transferredBytes[feature.rawValue, default: 0], countStyle: .file))")
-                                    .font(.caption).foregroundStyle(.secondary)
-                            }
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(feature.title)
+                            Text("Transferred: \(ByteCountFormatter.string(fromByteCount: onlineAccess.transferredBytes[feature.rawValue, default: 0], countStyle: .file))")
+                                .font(.caption).foregroundStyle(.secondary)
                         }
-                        .disabled(!vm.appCanConnectToInternet)
+                        .accessibilityElement(children: .combine)
                         .accessibilityIdentifier("settings_online_\(feature.rawValue)")
                     }
                     Text("Usage since \(onlineAccess.trackingSince.formatted(date: .abbreviated, time: .omitted)). Includes sent and received HTTP data; excludes cached responses and connection overhead.")

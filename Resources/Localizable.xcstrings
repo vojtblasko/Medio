@@ -953,6 +953,34 @@
         }
       }
     },
+    "Apple’s Certificate Setup Guide": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apple’s Certificate Setup Guide"
+          }
+        },
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Průvodce nastavením certifikátů od Applu"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Apples Anleitung zur Zertifikateinrichtung"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Guide Apple de configuration des certificats"
+          }
+        }
+      }
+    },
     "Arrange Favorites": {
       "localizations": {
         "en": {
@@ -2437,6 +2465,34 @@
         }
       }
     },
+    "Copy Join Link": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copy Join Link"
+          }
+        },
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zkopírovat odkaz pro připojení"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Beitrittslink kopieren"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Copier le lien de connexion"
+          }
+        }
+      }
+    },
     "Copy Storage Diagnostics": {
       "localizations": {
         "en": {
@@ -2461,6 +2517,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "Copier le diagnostic du stockage"
+          }
+        }
+      }
+    },
+    "Could not create the encrypted sharing session. Please try again.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Could not create the encrypted sharing session. Please try again."
+          }
+        },
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Šifrované sdílení se nepodařilo spustit. Zkuste to znovu."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Die verschlüsselte Freigabe konnte nicht gestartet werden. Bitte erneut versuchen."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Impossible de démarrer le partage chiffré. Veuillez réessayer."
           }
         }
       }
@@ -2629,6 +2713,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "Création"
+          }
+        }
+      }
+    },
+    "Creates a temporary 96 kbps AAC copy. Videos share only their audio. Preparing a copy may take time; original files are unchanged.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Creates a temporary 96 kbps AAC copy. Videos share only their audio. Preparing a copy may take time; original files are unchanged."
+          }
+        },
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vytvoří dočasnou kopii AAC s datovým tokem 96 kb/s. U videí sdílí pouze zvuk. Příprava může chvíli trvat; původní soubory se nemění."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Erstellt eine temporäre AAC-Kopie mit 96 kbit/s. Bei Videos wird nur der Ton geteilt. Die Vorbereitung kann dauern; Originaldateien bleiben unverändert."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Crée une copie AAC temporaire à 96 kbit/s. Seul le son des vidéos est partagé. La préparation peut prendre du temps ; les fichiers originaux restent inchangés."
           }
         }
       }
@@ -3273,6 +3385,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "Métadonnées modifiables"
+          }
+        }
+      }
+    },
+    "Encrypted Sharing": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Encrypted Sharing"
+          }
+        },
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Šifrované sdílení"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verschlüsselte Freigabe"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Partage chiffré"
           }
         }
       }
@@ -4589,6 +4729,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "Garder Internet activé"
+          }
+        }
+      }
+    },
+    "Keep Medio open while sharing. Leaving the app stops the session. Audio and access codes use encrypted HTTPS. Each receiving device needs the one-time certificate setup. Playback timing depends on Wi-Fi and the receiving browser.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Keep Medio open while sharing. Leaving the app stops the session. Audio and access codes use encrypted HTTPS. Each receiving device needs the one-time certificate setup. Playback timing depends on Wi-Fi and the receiving browser."
+          }
+        },
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Při sdílení nechte Medio otevřené. Opuštěním aplikace sdílení skončí. Zvuk a přístupové kódy se přenášejí šifrovaně přes HTTPS. Na každém přijímacím zařízení je třeba jednou nastavit certifikát. Zpoždění přehrávání závisí na Wi-Fi a prohlížeči posluchače."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Medio muss beim Teilen geöffnet bleiben. Beim Verlassen der App endet die Sitzung. Audio und Zugangscodes werden über HTTPS verschlüsselt. Jedes Empfangsgerät benötigt eine einmalige Zertifikateinrichtung. Die Verzögerung hängt vom WLAN und dem empfangenden Browser ab."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Gardez Medio ouvert pendant le partage. Quitter l’app termine la session. L’audio et les codes d’accès sont chiffrés via HTTPS. Chaque appareil récepteur nécessite une configuration initiale du certificat. Le décalage dépend du Wi-Fi et du navigateur récepteur."
           }
         }
       }
@@ -6553,6 +6721,62 @@
         }
       }
     },
+    "On the listening device, scan this certificate QR code. Install the downloaded Medio Local Audio profile in Settings → General → VPN & Device Management.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "On the listening device, scan this certificate QR code. Install the downloaded Medio Local Audio profile in Settings → General → VPN & Device Management."
+          }
+        },
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Na zařízení posluchače naskenujte tento QR kód certifikátu. Stažený profil Medio Local Audio nainstalujte v Nastavení → Obecné → VPN a správa zařízení."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scanne diesen Zertifikat-QR-Code auf dem Empfangsgerät. Installiere das geladene Profil Medio Local Audio unter Einstellungen → Allgemein → VPN und Geräteverwaltung."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sur l’appareil récepteur, scannez ce QR code de certificat. Installez le profil Medio Local Audio téléchargé dans Réglages → Général → VPN et gestion de l’appareil."
+          }
+        }
+      }
+    },
+    "One-Time Setup": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "One-Time Setup"
+          }
+        },
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Jednorázové nastavení"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Einmalige Einrichtung"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Configuration initiale"
+          }
+        }
+      }
+    },
     "Online Access": {
       "localizations": {
         "en": {
@@ -7057,6 +7281,34 @@
         }
       }
     },
+    "Preparing audio for sharing…": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Preparing audio for sharing…"
+          }
+        },
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Připravuji zvuk ke sdílení…"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Audio wird zum Teilen vorbereitet…"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Préparation de l’audio pour le partage…"
+          }
+        }
+      }
+    },
     "Preparing library scan": {
       "localizations": {
         "en": {
@@ -7389,6 +7641,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "Prêt pour les auditeurs"
+          }
+        }
+      }
+    },
+    "Reduce Audio Bandwidth": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reduce Audio Bandwidth"
+          }
+        },
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Snížit datový tok zvuku"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Audio-Datenrate reduzieren"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Réduire le débit audio"
           }
         }
       }
@@ -8065,6 +8345,34 @@
         }
       }
     },
+    "Scan to open the encrypted player and fill in the access code. Then tap Listen.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scan to open the encrypted player and fill in the access code. Then tap Listen."
+          }
+        },
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Naskenováním otevřete šifrovaný přehrávač a vyplníte přístupový kód. Poté klepněte na Poslouchat."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scannen, um den verschlüsselten Player zu öffnen und den Zugangscode auszufüllen. Dann auf Anhören tippen."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Scannez pour ouvrir le lecteur chiffré et renseigner le code d’accès. Touchez ensuite Écouter."
+          }
+        }
+      }
+    },
     "Scanning files": {
       "localizations": {
         "en": {
@@ -8345,6 +8653,34 @@
         }
       }
     },
+    "Set Up Encryption": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Set Up Encryption"
+          }
+        },
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Nastavit šifrování"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verschlüsselung einrichten"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Configurer le chiffrement"
+          }
+        }
+      }
+    },
     "Settings": {
       "localizations": {
         "en": {
@@ -8537,6 +8873,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "Partager avec d’autres casques ou enceintes"
+          }
+        }
+      }
+    },
+    "Sharing QR Code": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Sharing QR Code"
+          }
+        },
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "QR kód pro sdílení"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "QR-Code zum Teilen"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "QR code de partage"
           }
         }
       }
@@ -9629,6 +9993,34 @@
         }
       }
     },
+    "Then open Settings → General → About → Certificate Trust Settings and enable trust for this Medio Local Audio certificate. Return here and scan the join QR code.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Then open Settings → General → About → Certificate Trust Settings and enable trust for this Medio Local Audio certificate. Return here and scan the join QR code."
+          }
+        },
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Poté otevřete Nastavení → Obecné → Informace → Důvěryhodnost certifikátů a povolte důvěru tomuto certifikátu Medio Local Audio. Vraťte se sem a naskenujte QR kód pro připojení."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Öffne dann Einstellungen → Allgemein → Info → Zertifikatsvertrauenseinstellungen und aktiviere das Vertrauen für dieses Medio Local Audio-Zertifikat. Kehre hierher zurück und scanne den Beitritts-QR-Code."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ouvrez ensuite Réglages → Général → Informations → Réglages des certificats et activez la confiance pour ce certificat Medio Local Audio. Revenez ici et scannez le QR code de connexion."
+          }
+        }
+      }
+    },
     "These internet functions fetch artist pictures. Local audio sharing has its own switch and usage counter above. GitHub reports open in your browser, whose usage is not counted here.": {
       "localizations": {
         "en": {
@@ -9793,6 +10185,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "Transféré : %@"
+          }
+        }
+      }
+    },
+    "Trust only a host you control. Installing a root certificate grants trust to certificates signed by that host. Remove its profile from the listening device when you no longer need it.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Trust only a host you control. Installing a root certificate grants trust to certificates signed by that host. Remove its profile from the listening device when you no longer need it."
+          }
+        },
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Důvěřujte pouze hostitelskému zařízení, které máte pod kontrolou. Instalací kořenového certifikátu udělíte důvěru certifikátům podepsaným tímto hostitelem. Až profil nebudete potřebovat, odstraňte jej ze zařízení posluchače."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Vertraue nur einem Host, den du kontrollierst. Ein installiertes Stammzertifikat verleiht den von diesem Host signierten Zertifikaten Vertrauen. Entferne sein Profil vom Empfangsgerät, sobald du es nicht mehr brauchst."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ne faites confiance qu’à un appareil hôte que vous contrôlez. Installer un certificat racine accorde votre confiance aux certificats signés par cet hôte. Supprimez son profil de l’appareil récepteur lorsque vous n’en avez plus besoin."
           }
         }
       }
@@ -10129,6 +10549,34 @@
           "stringUnit": {
             "state": "translated",
             "value": "Utilisation de l’image de profil de l’artiste"
+          }
+        }
+      }
+    },
+    "Verify that the downloaded certificate matches the SHA-256 fingerprint shown on this host before trusting it. The certificate download is public; audio is available only through HTTPS.": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Verify that the downloaded certificate matches the SHA-256 fingerprint shown on this host before trusting it. The certificate download is public; audio is available only through HTTPS."
+          }
+        },
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Než certifikátu udělíte důvěru, ověřte, že jeho otisk SHA-256 odpovídá otisku zobrazenému na tomto hostiteli. Stažení certifikátu je veřejné; zvuk je dostupný pouze přes HTTPS."
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Prüfe vor dem Vertrauen, ob das geladene Zertifikat dem auf diesem Host angezeigten SHA-256-Fingerabdruck entspricht. Der Zertifikatdownload ist öffentlich; Audio ist nur über HTTPS verfügbar."
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Avant de lui faire confiance, vérifiez que le certificat téléchargé correspond à l’empreinte SHA-256 affichée sur cet hôte. Le téléchargement du certificat est public ; l’audio est disponible uniquement via HTTPS."
           }
         }
       }

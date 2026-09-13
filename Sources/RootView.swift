@@ -280,6 +280,8 @@ struct RootView: View {
         .environmentObject(container)
         .environmentObject(container.playbackStore)
         .environmentObject(batterySaver)
+        // Covered root controls must not remain in VoiceOver or UI automation focus.
+        .accessibilityHidden(router.sheet != nil || router.fullScreenCover != nil)
         .fullScreenCover(item: $router.fullScreenCover) { route in
             fullScreenCoverContent(for: route)
                 .background(SystemSheetHost(presenter: container.systemUIPresenter))
@@ -292,7 +294,7 @@ struct RootView: View {
             presenter: container.systemUIPresenter,
             isActive: router.sheet == nil && router.fullScreenCover == nil
         ))
-        .sheet(item: $router.sheet, onDismiss: {
+        .fullScreenCover(item: $router.sheet, onDismiss: {
             router.resetSheetStack()
         }) { route in
             CompatibleNavigationPathStack(path: $router.sheetPath) {

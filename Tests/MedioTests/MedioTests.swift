@@ -5,6 +5,9 @@ import AVFoundation
 import UniformTypeIdentifiers
 import WebKit
 import SQLite3
+import Security
+import CryptoKit
+import CoreImage
 @testable import Medio
 
 private struct StubLyricsRepository: LyricsRepository {
@@ -224,10 +227,12 @@ final class AppRouterTests: XCTestCase {
         let router = AppRouter()
         router.push(.folder(path: "/music"))
         router.push(.nowPlaying)
-        XCTAssertEqual(router.pushPath, [.folder(path: "/music")])
-        XCTAssertEqual(router.sheet, .nowPlaying)
+        XCTAssertTrue(router.pushPath.isEmpty)
+        XCTAssertEqual(router.sheet, .folder(path: "/music"))
+        XCTAssertEqual(router.currentSheetRoute, .nowPlaying)
         router.dismissSheet()
-        XCTAssertEqual(router.pushPath, [.folder(path: "/music")])
+        XCTAssertEqual(router.currentSheetRoute, .folder(path: "/music"))
+        router.dismissSheet()
         XCTAssertNil(router.sheet)
     }
 
@@ -235,9 +240,10 @@ final class AppRouterTests: XCTestCase {
         let router = AppRouter()
         XCTAssertTrue(router.pushPath.isEmpty)
         router.push(.createFolder(parentPath: "/tmp"))
-        XCTAssertEqual(router.pushPath.count, 1)
-        router.pop()
         XCTAssertTrue(router.pushPath.isEmpty)
+        XCTAssertEqual(router.currentSheetRoute, .createFolder(parentPath: "/tmp"))
+        router.dismissSheet()
+        XCTAssertNil(router.currentSheetRoute)
     }
 
     func testReselectHomeTabResetsHomeStackAndRequestsScrollToTop() {
@@ -3122,6 +3128,47 @@ final class MediaArtworkRenderingTests: XCTestCase {
         return bytes
     }
 
+    func testRectangularEmbeddedArtKeepsOriginalResolutionAndSharpSquareThumbnails() async throws {
+        let cache = ArtworkCache.shared
+        cache.setLowPowerMode(false)
+        for size in [CGSize(width: 2048, height: 1024), CGSize(width: 1024, height: 2048)] {
+            let format = UIGraphicsImageRendererFormat()
+            format.scale = 1
+            let image = UIGraphicsImageRenderer(size: size, format: format).image { context in
+                UIColor.red.setFill(); context.fill(CGRect(origin: .zero, size: size))
+            }
+            let png = try XCTUnwrap(image.pngData())
+            var block = Data()
+            func appendWord(_ number: UInt32) {
+                var value = number.bigEndian
+                withUnsafeBytes(of: &value) { block.append(contentsOf: $0) }
+            }
+            // A self-contained FLAC picture metadata fixture; no copyrighted media.
+            appendWord(3); appendWord(9); block.append(Data("image/png".utf8)); appendWord(0)
+            appendWord(UInt32(size.width)); appendWord(UInt32(size.height)); appendWord(24); appendWord(0)
+            appendWord(UInt32(png.count)); block.append(png)
+            var file = Data("fLaC".utf8)
+            file.append(contentsOf: [0x86, UInt8((block.count >> 16) & 255), UInt8((block.count >> 8) & 255), UInt8(block.count & 255)])
+            file.append(block)
+            let url = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".flac")
+            try file.write(to: url)
+            defer { try? FileManager.default.removeItem(at: url); cache.invalidate([url.path]) }
+            let extracted = await ArtworkCache.extractArtwork(for: url.path)
+            let original = try XCTUnwrap(extracted)
+            XCTAssertEqual(original.size, size, "Album headers must receive the original pixels")
+            var thumbnail = cache.image(for: url.path)
+            let deadline = Date().addingTimeInterval(5)
+            while thumbnail == nil && Date() < deadline {
+                try await Task.sleep(nanoseconds: 20_000_000)
+                thumbnail = cache.image(for: url.path)
+            }
+            let preview = try XCTUnwrap(thumbnail)
+            XCTAssertGreaterThanOrEqual(min(preview.size.width, preview.size.height), 512,
+                "The cropped square needs enough pixels even when the source is rectangular")
+            XCTAssertEqual(preview.size.width / preview.size.height, size.width / size.height, accuracy: 0.001)
+        }
+    }
+
     func testPortraitLandscapeAndSquareCoversKeepTheirProportions() throws {
         guard #available(iOS 16.0, *) else { throw XCTSkip("ImageRenderer requires iOS 16") }
         for size in [CGSize(width: 240, height: 120), CGSize(width: 120, height: 240), CGSize(width: 120, height: 120)] {
@@ -3241,25 +3288,25 @@ final class BrowsingPreferencesRegressionTests: XCTestCase {
         XCTAssertNotNil(icons?.image)
     }
 
-    func testOnlineFeatureGatesAndUsagePersistAndResetIndependently() {
+    func testSingleInternetGateMigratesOldSwitchesAndKeepsUsageByProcess() {
         let name = "MedioTests.online.\(UUID())"
         let defaults = UserDefaults(suiteName: name)!
         defer { defaults.removePersistentDomain(forName: name) }
+        defaults.set(["imageDownloads"], forKey: "medio.online.disabledFeatures")
         let store = OnlineAccessStore(defaults: defaults)
-        XCTAssertFalse(store.allows(.imageDownloads))
+        XCTAssertTrue(OnlineFeature.allCases.allSatisfy { !store.allows($0) })
         store.masterEnabled = true
-        store.setEnabled(false, for: .imageDownloads)
-        XCTAssertFalse(store.allows(.imageDownloads))
-        XCTAssertTrue(store.allows(.imageMetadata))
+        XCTAssertTrue(OnlineFeature.allCases.allSatisfy { store.allows($0) })
+        XCTAssertNil(defaults.object(forKey: "medio.online.disabledFeatures"))
         store.record(bytes: 1234, for: .artistLookup)
         store.record(bytes: 4321, for: .imageMetadata)
         let restored = OnlineAccessStore(defaults: defaults)
         XCTAssertEqual(restored.transferredBytes[OnlineFeature.artistLookup.rawValue], 1234)
         XCTAssertEqual(restored.transferredBytes[OnlineFeature.imageMetadata.rawValue], 4321)
-        XCTAssertFalse(restored.isEnabled(.imageDownloads))
+        XCTAssertFalse(restored.allows(.imageDownloads))
         restored.resetUsage()
         XCTAssertTrue(restored.transferredBytes.isEmpty)
-        XCTAssertFalse(restored.isEnabled(.imageDownloads))
+        XCTAssertFalse(restored.allows(.imageDownloads))
     }
 }
 
@@ -3281,8 +3328,12 @@ private final class ArtistRequestProbe: URLProtocol, @unchecked Sendable {
     override func stopLoading() {}
 }
 
+@MainActor
 final class OnlineRequestGateTests: XCTestCase {
     func testDisabledFeaturesNeverStartNetworkRequests() async {
+        let originalPermission = OnlineAccessStore.shared.masterEnabled
+        OnlineAccessStore.shared.masterEnabled = true
+        defer { OnlineAccessStore.shared.masterEnabled = originalPermission }
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [ArtistRequestProbe.self]
         let session = URLSession(configuration: configuration)
@@ -3295,6 +3346,13 @@ final class OnlineRequestGateTests: XCTestCase {
         _ = await selective.fetchImage(for: "Test Artist")
         XCTAssertFalse(ArtistRequestProbe.urls().isEmpty)
         XCTAssertTrue(ArtistRequestProbe.urls().allSatisfy { $0.host == "musicbrainz.org" })
+        OnlineAccessStore.shared.masterEnabled = false
+        ArtistRequestProbe.reset()
+        do {
+            _ = try await OnlineAccessStore.shared.data(for: URLRequest(url: URL(string: "https://musicbrainz.org/")!), feature: .artistLookup, using: session)
+            XCTFail("The master switch must prevent even direct requests through the shared gate")
+        } catch { XCTAssertEqual((error as? URLError)?.code, .notConnectedToInternet) }
+        XCTAssertTrue(ArtistRequestProbe.urls().isEmpty)
     }
 }
 
@@ -3372,7 +3430,9 @@ final class LocalAudioSharingTests: XCTestCase {
         let track = SharedAudioTrack(id: "first", url: file, mimeType: "audio/mpeg", size: 100)
         server.update(track: track, state: SharedAudioState(track: "first", title: "A <title>", position: 12.5, playing: true))
         let state = try await request("/state", headers: auth)
-        XCTAssertEqual(try JSONDecoder().decode(SharedAudioState.self, from: state.0).position, 12.5)
+        let movingPosition = try JSONDecoder().decode(SharedAudioState.self, from: state.0).position
+        XCTAssertGreaterThanOrEqual(movingPosition, 12.5)
+        XCTAssertLessThan(movingPosition, 15.5)
         let partial = try await request("/audio/first?token=\(token)", headers: ["Range": "bytes=8-15"])
         XCTAssertEqual(partial.1.statusCode, 206)
         XCTAssertEqual(partial.0, Data(8..<16))
@@ -3435,14 +3495,15 @@ final class AudioSharingReceiverTests: XCTestCase {
         let documents = try XCTUnwrap(FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first)
         let file = documents.appendingPathComponent("receiver-test-\(UUID().uuidString).wav")
         defer { try? FileManager.default.removeItem(at: file) }
-        // Three seconds of silence, PCM mono, 8 kHz / 16-bit. No external media.
+        // Thirty seconds of silence leaves room for cold WebKit startup while
+        // the host clock advances. PCM mono, 8 kHz / 16-bit; no external media.
         var wav = Data()
         func ascii(_ value: String) { wav.append(contentsOf: value.utf8) }
         func word(_ value: UInt16) { var value = value.littleEndian; withUnsafeBytes(of: &value) { wav.append(contentsOf: $0) } }
         func dword(_ value: UInt32) { var value = value.littleEndian; withUnsafeBytes(of: &value) { wav.append(contentsOf: $0) } }
-        ascii("RIFF"); dword(48036); ascii("WAVEfmt "); dword(16); word(1); word(1)
-        dword(8000); dword(16000); word(2); word(16); ascii("data"); dword(48000)
-        wav.append(Data(repeating: 0, count: 48000)); try wav.write(to: file)
+        ascii("RIFF"); dword(480036); ascii("WAVEfmt "); dword(16); word(1); word(1)
+        dword(8000); dword(16000); word(2); word(16); ascii("data"); dword(480000)
+        wav.append(Data(repeating: 0, count: 480000)); try wav.write(to: file)
         let item = MediaItem(id: file.path, title: "Receiver <test>", artist: "Local", isVideo: false)
         let prepared = await SharedAudioTrack.prepare(item: item)
         let track = try XCTUnwrap(prepared)
@@ -3458,9 +3519,9 @@ final class AudioSharingReceiverTests: XCTestCase {
         let loaded = expectation(description: "Receiver page loads")
         let delegate = SharingNavigationDelegate(loaded: loaded)
         web.navigationDelegate = delegate
-        web.load(URLRequest(url: URL(string: "http://127.0.0.1:\(serverPort)/")!))
+        web.load(URLRequest(url: URL(string: "http://127.0.0.1:\(serverPort)/#code=654321")!))
         await fulfillment(of: [loaded], timeout: 30)
-        try await evaluate(web, script: "document.getElementById('code').value='654321';document.getElementById('join').requestSubmit();true")
+        try await waitFor(web, expression: "location.hash === ''")
         try await waitFor(web, expression: "!document.getElementById('player').hidden && document.getElementById('audio').src.includes('/audio/')")
         try await evaluate(web, script: "document.getElementById('audio').muted=true;document.getElementById('listen').click();true")
         try await waitFor(web, expression: "!document.getElementById('audio').paused && document.getElementById('audio').currentTime > 0", timeout: 60)
@@ -3507,4 +3568,218 @@ private final class SharingNavigationDelegate: NSObject, WKNavigationDelegate {
     let loaded: XCTestExpectation
     init(loaded: XCTestExpectation) { self.loaded = loaded }
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) { loaded.fulfill() }
+}
+
+@MainActor
+final class SharingSecurityTests: XCTestCase {
+    func testCertificateIdentityTrustAndHostValidation() throws {
+        let account = "MedioTests.tls.\(UUID().uuidString)"
+        defer { removeRoot(account) }
+        let first = try SharingTLSIdentity.make(host: "127.0.0.1", keychainAccount: account)
+        let next = try SharingTLSIdentity.make(host: "192.168.1.10", keychainAccount: account)
+        XCTAssertEqual(first.rootCertificate, next.rootCertificate, "Setup is reused across sharing sessions and Wi-Fi addresses")
+        let root = try XCTUnwrap(SecCertificateCreateWithData(nil, first.rootCertificate as CFData))
+        XCTAssertTrue(trust(first.certificate, root: root, host: "127.0.0.1"))
+        XCTAssertFalse(trust(first.certificate, root: root, host: "192.168.1.10"))
+        XCTAssertTrue(trust(next.certificate, root: root, host: "192.168.1.10"))
+    }
+
+    func testHTTPSRejectsUntrustedClientsAndServesWithPinnedRoot() async throws {
+        let account = "MedioTests.tls.\(UUID().uuidString)"
+        defer { removeRoot(account) }
+        let identity = try SharingTLSIdentity.make(host: "127.0.0.1", keychainAccount: account)
+        let ready = expectation(description: "TLS listener starts")
+        let box = SharingTestPort()
+        let server = LocalAudioHTTPServer(code: "123456", page: "encrypted receiver", restrictToWiFi: false, tlsIdentity: identity) { event in
+            if case .ready(let port) = event { box.set(port); ready.fulfill() }
+        }
+        server.start()
+        defer { server.stop() }
+        await fulfillment(of: [ready], timeout: 30)
+        let url = URL(string: "https://127.0.0.1:\(try XCTUnwrap(box.get()))/")!
+        let config = URLSessionConfiguration.ephemeral
+        config.timeoutIntervalForRequest = 15
+        let untrusted = URLSession(configuration: config)
+        defer { untrusted.invalidateAndCancel() }
+        do {
+            _ = try await untrusted.data(from: url)
+            XCTFail("Untrusted TLS certificates must be rejected")
+        } catch { XCTAssertTrue((error as NSError).domain == NSURLErrorDomain) }
+        let trusted = URLSession(configuration: config, delegate: SharingTestTrustDelegate(root: identity.rootCertificate), delegateQueue: nil)
+        defer { trusted.invalidateAndCancel() }
+        let (data, response) = try await trusted.data(from: url)
+        XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 200)
+        XCTAssertEqual(String(data: data, encoding: .utf8), "encrypted receiver")
+    }
+
+    func testPublicCertificateEndpointCannotExposeAudioOrJoin() async throws {
+        let ready = expectation(description: "Certificate listener starts")
+        let box = SharingTestPort()
+        let server = LocalAudioHTTPServer(code: "123456", page: "must not be served", restrictToWiFi: false, certificateDownload: Data([1,2,3])) { event in
+            if case .ready(let port) = event { box.set(port); ready.fulfill() }
+        }
+        server.start()
+        defer { server.stop() }
+        await fulfillment(of: [ready], timeout: 30)
+        let session = URLSession(configuration: .ephemeral)
+        defer { session.invalidateAndCancel() }
+        for path in ["/", "/state", "/audio/test", "/join"] {
+            let (_, response) = try await session.data(from: URL(string: "http://127.0.0.1:\(try XCTUnwrap(box.get()))\(path)")!)
+            XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 404)
+        }
+        let (data, response) = try await session.data(from: URL(string: "http://127.0.0.1:\(try XCTUnwrap(box.get()))/certificate.cer")!)
+        XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 200)
+        XCTAssertEqual(data, Data([1,2,3]))
+    }
+
+    func testJoinQRCodeRoundTripsAndKeepsCodeOutOfRequestURL() throws {
+        let url = URL(string: "https://192.168.1.42:4443/#code=123456")!
+        let image = try XCTUnwrap(SharingQRCode.image(for: url))
+        let input = try XCTUnwrap(CIImage(image: image)).transformed(by: CGAffineTransform(scaleX: 8, y: 8))
+        let detector = try XCTUnwrap(CIDetector(ofType: CIDetectorTypeQRCode, context: CIContext(), options: [CIDetectorAccuracy: CIDetectorAccuracyHigh]))
+        let result = try XCTUnwrap(detector.features(in: input).first as? CIQRCodeFeature)
+        XCTAssertEqual(result.messageString, url.absoluteString)
+        XCTAssertNil(url.query)
+        XCTAssertEqual(url.fragment, "code=123456")
+    }
+
+    private func trust(_ leaf: SecCertificate, root: SecCertificate, host: String) -> Bool {
+        var trust: SecTrust?
+        guard SecTrustCreateWithCertificates([leaf, root] as CFArray, SecPolicyCreateSSL(true, host as CFString), &trust) == errSecSuccess,
+              let trust else { return false }
+        SecTrustSetAnchorCertificates(trust, [root] as CFArray)
+        SecTrustSetAnchorCertificatesOnly(trust, true)
+        return SecTrustEvaluateWithError(trust, nil)
+    }
+
+    private func removeRoot(_ account: String) {
+        SecItemDelete([kSecClass: kSecClassGenericPassword, kSecAttrService: "Medio Local Audio TLS", kSecAttrAccount: account] as CFDictionary)
+    }
+}
+
+private final class SharingTestTrustDelegate: NSObject, URLSessionDelegate, @unchecked Sendable {
+    let root: Data
+    init(root: Data) { self.root = root }
+    func urlSession(_ session: URLSession, didReceive challenge: URLAuthenticationChallenge,
+                    completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
+        guard let trust = challenge.protectionSpace.serverTrust,
+              let root = SecCertificateCreateWithData(nil, root as CFData) else { completionHandler(.cancelAuthenticationChallenge, nil); return }
+        SecTrustSetAnchorCertificates(trust, [root] as CFArray)
+        SecTrustSetAnchorCertificatesOnly(trust, true)
+        guard SecTrustEvaluateWithError(trust, nil) else { completionHandler(.cancelAuthenticationChallenge, nil); return }
+        completionHandler(.useCredential, URLCredential(trust: trust))
+    }
+}
+
+@MainActor
+final class SharingAudioPreparationTests: XCTestCase {
+    func testCompressionReducesPCMSizePreservesSourceAndCleansUpCopy() async throws {
+        let source = try makeTone()
+        defer { try? FileManager.default.removeItem(at: source) }
+        let original = try Data(contentsOf: source)
+        let output = try await SharingAudioPreparation.makeAudioCopy(from: source, compact: true)
+        var owner: SharedTemporaryAudio? = SharedTemporaryAudio(url: output)
+        let asset = AVURLAsset(url: output)
+        let audio = try await asset.loadTracks(withMediaType: .audio)
+        let video = try await asset.loadTracks(withMediaType: .video)
+        let duration = try await asset.load(.duration)
+        XCTAssertEqual(audio.count, 1)
+        XCTAssertTrue(video.isEmpty)
+        XCTAssertEqual(duration.seconds, 3, accuracy: 0.1)
+        XCTAssertLessThan(try Data(contentsOf: output).count, original.count / 3)
+        XCTAssertEqual(try Data(contentsOf: source), original)
+        XCTAssertEqual(owner?.url, output)
+        owner = nil
+        XCTAssertFalse(FileManager.default.fileExists(atPath: output.path))
+    }
+
+    func testVideoSharingExtractsOnlyAudioInBothQualityModes() async throws {
+        let tone = try makeTone()
+        let silentVideo = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".mov")
+        let documents = try XCTUnwrap(FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first)
+        try FileManager.default.createDirectory(at: documents, withIntermediateDirectories: true)
+        let source = documents.appendingPathComponent(UUID().uuidString + ".mov")
+        defer { for url in [tone, silentVideo, source] { try? FileManager.default.removeItem(at: url) } }
+        let writer = try AVAssetWriter(outputURL: silentVideo, fileType: .mov)
+        let input = AVAssetWriterInput(mediaType: .video, outputSettings: [AVVideoCodecKey: AVVideoCodecType.h264, AVVideoWidthKey: 64, AVVideoHeightKey: 64])
+        let adaptor = AVAssetWriterInputPixelBufferAdaptor(assetWriterInput: input,
+            sourcePixelBufferAttributes: [kCVPixelBufferPixelFormatTypeKey as String: kCVPixelFormatType_32ARGB,
+                kCVPixelBufferWidthKey as String: 64, kCVPixelBufferHeightKey as String: 64])
+        writer.add(input)
+        XCTAssertTrue(writer.startWriting())
+        writer.startSession(atSourceTime: .zero)
+        var pixel: CVPixelBuffer?
+        XCTAssertEqual(CVPixelBufferCreate(nil, 64, 64, kCVPixelFormatType_32ARGB, nil, &pixel), kCVReturnSuccess)
+        let buffer = try XCTUnwrap(pixel)
+        CVPixelBufferLockBaseAddress(buffer, [])
+        memset(CVPixelBufferGetBaseAddress(buffer), 0, CVPixelBufferGetDataSize(buffer))
+        CVPixelBufferUnlockBaseAddress(buffer, [])
+        for second in 0..<3 {
+            let deadline = Date().addingTimeInterval(10)
+            while !input.isReadyForMoreMediaData && Date() < deadline { try await Task.sleep(nanoseconds: 10_000_000) }
+            XCTAssertTrue(input.isReadyForMoreMediaData)
+            XCTAssertTrue(adaptor.append(buffer, withPresentationTime: CMTime(seconds: Double(second), preferredTimescale: 600)))
+        }
+        writer.endSession(atSourceTime: CMTime(seconds: 3, preferredTimescale: 600))
+        input.markAsFinished()
+        await writer.finishWriting()
+        XCTAssertEqual(writer.status, .completed)
+        let composition = AVMutableComposition()
+        let range = CMTimeRange(start: .zero, duration: CMTime(seconds: 3, preferredTimescale: 600))
+        for (url, type) in [(tone, AVMediaType.audio), (silentVideo, AVMediaType.video)] {
+            let sourceAsset = AVURLAsset(url: url)
+            let tracks = try await sourceAsset.loadTracks(withMediaType: type)
+            let track = try XCTUnwrap(tracks.first)
+            let destination = try XCTUnwrap(composition.addMutableTrack(withMediaType: type, preferredTrackID: kCMPersistentTrackID_Invalid))
+            try withExtendedLifetime(sourceAsset) {
+                try destination.insertTimeRange(range, of: track, at: .zero)
+            }
+        }
+        let export = try XCTUnwrap(AVAssetExportSession(asset: composition, presetName: AVAssetExportPresetHighestQuality))
+        export.outputURL = source
+        export.outputFileType = .mov
+        await export.export()
+        XCTAssertEqual(export.status, .completed)
+        let original = try Data(contentsOf: source)
+        for compact in [false, true] {
+            let prepared = await SharedAudioTrack.prepare(item: MediaItem(id: source.path, title: "Generated test video", isVideo: true), compact: compact)
+            let shared = try XCTUnwrap(prepared)
+            XCTAssertNotEqual(shared.url, source)
+            XCTAssertEqual(shared.mimeType, "audio/mp4")
+            let asset = AVURLAsset(url: shared.url)
+            let videos = try await asset.loadTracks(withMediaType: .video)
+            let audios = try await asset.loadTracks(withMediaType: .audio)
+            XCTAssertTrue(videos.isEmpty)
+            XCTAssertEqual(audios.count, 1)
+            XCTAssertEqual(try Data(contentsOf: source), original)
+        }
+    }
+
+    func testCancelledPreparationDoesNotChangeSource() async throws {
+        let source = try makeTone()
+        defer { try? FileManager.default.removeItem(at: source) }
+        let original = try Data(contentsOf: source)
+        let task = Task { try await SharingAudioPreparation.makeAudioCopy(from: source, compact: true) }
+        task.cancel()
+        do {
+            let output = try await task.value
+            try? FileManager.default.removeItem(at: output)
+            XCTFail("Cancelled conversion must not publish an output")
+        } catch { XCTAssertTrue(error is CancellationError) }
+        XCTAssertEqual(try Data(contentsOf: source), original)
+    }
+
+    private func makeTone() throws -> URL {
+        let source = FileManager.default.temporaryDirectory.appendingPathComponent(UUID().uuidString + ".wav")
+        let format = try XCTUnwrap(AVAudioFormat(standardFormatWithSampleRate: 44_100, channels: 2))
+        let buffer = try XCTUnwrap(AVAudioPCMBuffer(pcmFormat: format, frameCapacity: 132_300))
+        buffer.frameLength = buffer.frameCapacity
+        for channel in 0..<2 {
+            let samples = try XCTUnwrap(buffer.floatChannelData?[channel])
+            for frame in 0..<Int(buffer.frameLength) { samples[frame] = Float(0.4 * sin(2 * .pi * 440 * Double(frame) / 44_100)) }
+        }
+        let file = try AVAudioFile(forWriting: source, settings: format.settings)
+        try file.write(from: buffer)
+        return source
+    }
 }

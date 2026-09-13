@@ -8,29 +8,78 @@ import UIKit
 struct NativeBrowserOptionsMenu: View {
     let accessibilityLabel: String
     let makeMenu: () -> UIMenu
-    @Environment(\.medioUsesCompactRootChrome) private var compact
+
+    private var button: some View {
+        NativeBrowserMenuButton(accessibilityLabel: accessibilityLabel, makeMenu: makeMenu)
+            .frame(width: 44, height: 44)
+            .fixedSize()
+            .contentShape(Circle())
+    }
 
     var body: some View {
-        NativeBrowserMenuButton(accessibilityLabel: accessibilityLabel, makeMenu: makeMenu)
-            .frame(width: compact ? 36 : 44, height: compact ? 36 : 44)
+        if #available(iOS 26.0, *) {
+            button.glassEffect(.regular.interactive(), in: Circle())
+        } else {
+            button.background(.thinMaterial, in: Circle())
+        }
     }
+}
+
+/// Choose the toolbar API outside ToolbarContentBuilder, whose conditional
+/// branches require iOS 16. The legacy toolbar remains available on iOS 15.5.
+extension View {
+    @ViewBuilder
+    func browserOptionsToolbar<Content: View>(showsSelection: Bool = false, @ViewBuilder content: () -> Content) -> some View {
+        if #available(iOS 26.0, *) {
+            toolbar {
+                ToolbarItemGroup(placement: .navigationBarTrailing) { content() }
+                    .sharedBackgroundVisibility(showsSelection ? .automatic : .hidden)
+            }
+        } else {
+            toolbar { ToolbarItemGroup(placement: .navigationBarTrailing) { content() } }
+        }
+    }
+}
+
+private final class CircularBrowserButton: UIButton {
+    override var intrinsicContentSize: CGSize { CGSize(width: 44, height: 44) }
 }
 
 private struct NativeBrowserMenuButton: UIViewRepresentable {
     let accessibilityLabel: String
     let makeMenu: () -> UIMenu
 
+    final class Coordinator {
+        var makeMenu: () -> UIMenu
+        init(makeMenu: @escaping () -> UIMenu) { self.makeMenu = makeMenu }
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator(makeMenu: makeMenu) }
+
     func makeUIView(context: Context) -> UIButton {
-        let button = UIButton(type: .system)
+        let button = CircularBrowserButton(type: .system)
         button.setImage(UIImage(systemName: "ellipsis", withConfiguration: UIImage.SymbolConfiguration(pointSize: 20, weight: .semibold)), for: .normal)
         button.tintColor = .label
+        button.setContentHuggingPriority(.required, for: .horizontal)
+        button.setContentCompressionResistancePriority(.required, for: .horizontal)
         button.showsMenuAsPrimaryAction = true
+        let coordinator = context.coordinator
+        // Resolve fresh actions when opening, without replacing an already presented menu
+        // whenever playback progress publishes another update.
+        button.menu = UIMenu(children: [UIDeferredMenuElement.uncached { completion in
+            completion(coordinator.makeMenu().children)
+        }])
         return button
     }
 
     func updateUIView(_ button: UIButton, context: Context) {
         button.accessibilityLabel = accessibilityLabel
-        button.menu = makeMenu()
+        context.coordinator.makeMenu = makeMenu
+    }
+
+    @available(iOS 16.0, *)
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: UIButton, context: Context) -> CGSize? {
+        CGSize(width: 44, height: 44)
     }
 }
 
@@ -393,13 +442,13 @@ struct HomeScreen: View {
             }
         }
         .compatibleRootPageTitle("Home", isCollapsed: isRootTitleCollapsed)
-        .toolbar { mainToolbar }
+        .browserOptionsToolbar(showsSelection: isSelecting) { mainToolbar }
         .alert("Move", isPresented: $showMoveStatus) {
             Button("OK", role: .cancel) { }
         } message: {
             Text(moveStatusMessage)
         }
-        .sheet(isPresented: $showViewOptions) {
+        .fullScreenCover(isPresented: $showViewOptions) {
             FileBrowserViewOptionsPanel(iconSize: $browserIconSize)
         }
         .refreshable {
@@ -591,9 +640,9 @@ struct HomeScreen: View {
         libraryButton(for: item)
     }
 
-    @ToolbarContentBuilder
-    private var mainToolbar: some ToolbarContent {
-        ToolbarItemGroup(placement: .navigationBarTrailing) {
+    @ViewBuilder
+    private var mainToolbar: some View {
+        Group {
             if isSelecting {
                 Button("Move") {
                     router.presentMoveItems(selectedMovableIDs)
@@ -1107,7 +1156,6 @@ struct FileBrowserIconTile: View {
             }
         }
         .opacity(isSelecting && !isMovable ? 0.62 : 1)
-        .playbackQueueProgress(for: item.id)
     }
 
     private var subtitle: String {
@@ -3020,7 +3068,7 @@ struct LibraryScreen: View {
         .rootChromeCollapseObserver { updateRootTitleCollapsed($0) }
         .searchable(text: $vm.query, placement: .navigationBarDrawer(displayMode: .automatic), prompt: "Search")
         .compatibleRootPageTitle("Library", isCollapsed: isRootTitleCollapsed)
-        .toolbar { libraryToolbar }
+        .browserOptionsToolbar(showsSelection: isSelecting) { libraryToolbar }
         .alert("Import Files", isPresented: $showImportStatus) {
             Button("OK", role: .cancel) { }
         } message: {
@@ -3043,9 +3091,9 @@ struct LibraryScreen: View {
         }
     }
 
-    @ToolbarContentBuilder
-    private var libraryToolbar: some ToolbarContent {
-        ToolbarItemGroup(placement: .navigationBarTrailing) {
+    @ViewBuilder
+    private var libraryToolbar: some View {
+        Group {
             if isSelecting {
                 Button("Move") {
                     router.presentMoveItems(selectedItemIDs.sorted())
@@ -3457,7 +3505,7 @@ struct MiniPlayerBar: View {
                         Rectangle()
                             .fill(Color.primary.opacity(0.12))
                         Rectangle()
-                            .fill(Color.accentColor)
+                            .fill(Color.white)
                             .frame(width: proxy.size.width * progress)
                     }
                 }
@@ -3566,7 +3614,7 @@ struct MiniPlayerBar: View {
                     Capsule()
                         .fill(Color.primary.opacity(0.14))
                     Capsule()
-                        .fill(Color.accentColor)
+                        .fill(Color.white)
                         .frame(width: proxy.size.width * progress)
                 }
             }

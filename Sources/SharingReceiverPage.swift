@@ -43,26 +43,34 @@ enum SharingReceiverPage {
             token=(await response.json()).token;el('code').value='';el('join').hidden=true;el('player').hidden=false;failures=0;message(t.ready);poll(++generation);
           }catch{message(t.ended);}finally{el('connect').disabled=false;}
         };
-        function align(state){
-          if(Number.isFinite(state.position)&&Math.abs(audio.currentTime-state.position)>1.2){try{audio.currentTime=state.position;}catch{}}
+        function align(state,force=false){
+          if(!Number.isFinite(state.position))return;
+          const elapsed=state.playing&&state.receivedAt?(performance.now()-state.receivedAt)/1000:0;
+          const target=Math.max(0,state.position+elapsed), drift=target-audio.currentTime;
+          // Correct small clock differences gradually instead of repeatedly flushing the buffer.
+          if(force||Math.abs(drift)>3){try{audio.currentTime=target;}catch{}audio.playbackRate=1;}
+          else audio.playbackRate=state.playing&&Math.abs(drift)>.15?Math.max(.97,Math.min(1.03,1+drift*.03)):1;
         }
         async function play(){
           try{await audio.play();el('listen').hidden=true;message('');}catch{message(t.blocked);el('listen').hidden=false;}
         }
         el('listen').onclick=()=>{
           if(!latest?.track){message(t.wait);return;}
-          following=true;align(latest);el('listen').hidden=true;
+          following=true;align(latest,true);el('listen').hidden=true;
           // play() is called directly inside the tap event, as required by Safari.
           play();
         };
-        audio.addEventListener('loadedmetadata',()=>{if(latest)align(latest);});
+        audio.addEventListener('loadedmetadata',()=>{if(latest)align(latest,true);});
         audio.addEventListener('error',()=>{if(token&&currentTrack){message(t.unsupported);el('listen').hidden=false;}});
         async function poll(run){
           if(!token||run!==generation)return;
           try{
+            const requestedAt=performance.now();
             const response=await fetch('/state',{headers:{Authorization:'Bearer '+token},cache:'no-store',signal:requestSignal(5000)});
             if(!response.ok)throw new Error('session');
             const state=await response.json();if(run!==generation)return;
+            state.receivedAt=performance.now();
+            if(state.playing)state.position+=Math.min(1,(state.receivedAt-requestedAt)/2000);
             failures=0;latest=state;el('title').textContent=state.title||t.wait;el('artist').textContent=state.artist;
             if(state.track!==currentTrack){
               audio.pause();currentTrack=state.track||'';
@@ -71,7 +79,7 @@ enum SharingReceiverPage {
               el('listen').hidden=following;
             }
             if(!state.track){message(state.message||t.wait);}
-            else if(following){align(state);if(state.playing){if(audio.paused&&!audio.ended)play();else if(audio.ended){align(state);play();}}else audio.pause();}
+            else if(following){align(state);if(state.playing){if(audio.paused&&!audio.ended)play();else if(audio.ended){align(state);play();}}else{audio.pause();audio.playbackRate=1;}}
             else message(t.ready);
           }catch{
             if(run!==generation)return;
@@ -79,6 +87,10 @@ enum SharingReceiverPage {
             audio.pause();if(++failures>=3){stop();message(t.ended);return;}message(t.ended);
           }
           if(run===generation)setTimeout(()=>poll(run),750);
+        }
+        const scannedCode=new URLSearchParams(location.hash.slice(1)).get('code');
+        if(scannedCode&&/^[0-9]{6}$/.test(scannedCode)){
+          el('code').value=scannedCode;history.replaceState(null,'',location.pathname);el('join').requestSubmit();
         }
         </script></body></html>
         """

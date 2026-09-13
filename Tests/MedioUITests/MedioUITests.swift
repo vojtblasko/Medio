@@ -16,8 +16,21 @@ final class MedioUITests: XCTestCase {
         let button = app.navigationBars.buttons.matching(
             NSPredicate(format: "identifier == %@ OR label == %@", "BackButton", previousTitle)
         ).firstMatch
-        wait(button)
-        XCTAssertTrue(button.isHittable)
+        if button.exists { button.tap() }
+        else {
+            let close = app.buttons["sheet_close"]
+            wait(close)
+            XCTAssertTrue(close.isHittable)
+            close.tap()
+        }
+    }
+
+    private func tapVisibleButton(_ app: XCUIApplication, _ label: String, file: StaticString = #filePath, line: UInt = #line) {
+        let matches = app.buttons.matching(NSPredicate(format: "label == %@ OR identifier == %@", label, label))
+        guard let button = matches.allElementsBoundByIndex.first(where: { $0.isHittable }) else {
+            XCTFail("No visible button: \(label)", file: file, line: line)
+            return
+        }
         button.tap()
     }
 
@@ -87,10 +100,10 @@ final class MedioUITests: XCTestCase {
         wait(app.buttons["Example Album"])
         app.buttons["Example Album"].tap()
         wait(app.buttons["Song Two"])
-        app.buttons["Song Two"].tap()
+        tapVisibleButton(app, "Song Two")
 
         wait(app.buttons["Now Playing"])
-        app.buttons["Now Playing"].tap()
+        tapVisibleButton(app, "Now Playing")
         wait(app.buttons["now_playing_close"])
         app.buttons["now_playing_close"].tap()
 
@@ -99,6 +112,43 @@ final class MedioUITests: XCTestCase {
         app.buttons["Example Artist"].tap()
         wait(app.buttons["Artist Options"])
         goBack(app, to: "Library")
+    }
+
+    func testMenuRemainsClickableDuringPlaybackAndDetailScreensHideTabs() {
+        let app = makeApp()
+        app.launch()
+        wait(app.buttons["Song One"])
+        app.buttons["Song One"].tap()
+        let options = app.buttons["Home Options"]
+        wait(options)
+        XCTAssertEqual(options.frame.width, options.frame.height, accuracy: 2)
+        XCTAssertGreaterThanOrEqual(options.frame.width, 44)
+        let circle = XCTAttachment(screenshot: app.screenshot())
+        circle.name = "Circular Home options during playback"
+        circle.lifetime = .keepAlways
+        add(circle)
+        options.tap()
+        let icons = app.buttons["Icons"]
+        wait(icons)
+        // Hold the menu open across several playback progress publications.
+        let stillOpen = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == true"), object: icons)
+        XCTAssertEqual(XCTWaiter.wait(for: [stillOpen], timeout: 2), .completed)
+        icons.press(forDuration: 1.2)
+        wait(app.buttons["file_item_Example Folder"])
+        options.tap()
+        app.buttons["Settings"].tap()
+        wait(app.navigationBars["Settings"])
+        XCTAssertFalse(app.tabBars.buttons["Home"].exists && app.tabBars.buttons["Home"].isHittable)
+        app.buttons["sheet_close"].tap()
+        app.buttons["Now Playing"].tap()
+        wait(app.buttons["now_playing_queue"])
+        XCTAssertFalse(app.tabBars.buttons["Home"].exists && app.tabBars.buttons["Home"].isHittable)
+        app.buttons["now_playing_queue"].tap()
+        wait(app.navigationBars["Queue"])
+        XCTAssertFalse(app.tabBars.buttons["Home"].exists && app.tabBars.buttons["Home"].isHittable)
+        goBack(app, to: "Back")
+        app.buttons["now_playing_close"].tap()
+        XCTAssertTrue(app.tabBars.buttons["Home"].isHittable)
     }
 
     func testHomeAndLibraryOptionMenus() {
@@ -319,9 +369,10 @@ final class MedioUITests: XCTestCase {
         internet.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
         XCTAssertEqual(internet.value as? String, "1")
         for feature in ["artistLookup", "imageMetadata", "imageDownloads"] {
-            let control = app.switches["settings_online_\(feature)"]
-            wait(control)
-            XCTAssertTrue(control.isEnabled)
+            let row = app.descendants(matching: .any)["settings_online_\(feature)"].firstMatch
+            for _ in 0..<4 where !row.exists || !row.isHittable { app.swipeUp() }
+            wait(row)
+            XCTAssertFalse(app.switches["settings_online_\(feature)"].exists)
         }
         let priority = app.switches["settings_priority_favorites"]
         for _ in 0..<5 where !priority.exists || !priority.isHittable { app.swipeUp() }
@@ -437,7 +488,7 @@ final class MedioUITests: XCTestCase {
         wait(app.buttons["Create"])
         app.buttons["Create"].tap()
         wait(app.staticTexts["Folder name cannot be empty."])
-        app.buttons["sheet_close"].tap()
+        goBack(app, to: "Example Folder")
         wait(app.buttons["Folder Options"])
         goBack(app, to: "Home")
 

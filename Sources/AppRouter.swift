@@ -89,16 +89,8 @@ final class AppRouter: ObservableObject {
     }
 
     func push(_ route: SheetRoute) {
-        // Present the player above the current page so dismissing it never restores
-        // a hidden tab bar midway through a navigation transition.
-        if route == .nowPlaying {
-            present(route)
-            return
-        }
-        DiagnosticsCenter.recordInteraction("Navigated to: \(route.id)")
-        var path = pushPath(for: selectedTab)
-        path.append(route)
-        setPushPath(path, for: selectedTab)
+        // Detail pages live above the root tabs, with their own full-screen stack.
+        present(route)
     }
 
     func pop() {

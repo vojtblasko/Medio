@@ -415,10 +415,13 @@ final class ArtworkCache: ObservableObject {
     }
 
     nonisolated private static func prepareForCache(_ image: UIImage) -> UIImage {
-        let maxDimension: CGFloat = 320
-        let largestSide = max(image.size.width, image.size.height)
-        guard largestSide > maxDimension, largestSide > 0 else { return image }
-        let scale = maxDimension / largestSide
+        // Square browser frames crop the short edge. Sizing only the long edge
+        // made portrait/landscape covers visibly blurry after aspect-fill cropping.
+        let longest = max(image.size.width, image.size.height)
+        let shortest = min(image.size.width, image.size.height)
+        guard shortest > 0 else { return image }
+        let scale = min(1, 512 / shortest, 2048 / longest)
+        guard scale < 1 else { return image }
         let targetSize = CGSize(width: image.size.width * scale, height: image.size.height * scale)
         let format = UIGraphicsImageRendererFormat.default()
         format.scale = 1
@@ -636,18 +639,6 @@ struct PlaybackIndicatorSettingsSection: View {
     }
 }
 
-struct PlaybackQueueProgressModifier: ViewModifier {
-    let path: String
-    @EnvironmentObject private var playbackStore: PlaybackStore
-    func body(content: Content) -> some View {
-        content.opacity(playbackStore.pastQueueItemIDs.contains(path) ? 0.5 : 1)
-    }
-}
-
-extension View {
-    func playbackQueueProgress(for path: String) -> some View { modifier(PlaybackQueueProgressModifier(path: path)) }
-}
-
 struct MediaItemRow: View {
     let item: FileInfo
     let librarySongs: [FileInfo]
@@ -692,7 +683,6 @@ struct MediaItemRow: View {
         .padding(.vertical, 4)
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
-        .playbackQueueProgress(for: item.id)
         .onAppear(perform: loadOverride)
         .onReceive(NotificationCenter.default.publisher(for: .medioVisualMetadataOverridesDidChange)) { notification in
             guard let changedPath = notification.userInfo?["path"] as? String else {
