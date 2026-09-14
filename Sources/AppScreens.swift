@@ -103,7 +103,14 @@ enum BrowserOptionsMenu {
                                     title: (T) -> String, select: @escaping (T) -> Void) -> UIMenu {
         section(options.map { sort in
             let action = UIAction(title: title(sort), state: selected == sort ? .on : .off) { _ in select(sort) }
-            action.subtitle = selected == sort ? (ascending ? String(localized: "Ascending") : String(localized: "Descending")) : nil
+            if selected == sort {
+                let direction = ascending ? String(localized: "Ascending") : String(localized: "Descending")
+                if #available(iOS 16.0, *) {
+                    action.subtitle = direction
+                } else {
+                    action.title = "\(title(sort)) · \(direction)"
+                }
+            }
             return action
         })
     }
