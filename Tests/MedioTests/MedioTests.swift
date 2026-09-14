@@ -1494,6 +1494,30 @@ final class LibraryAndFilteringTests: XCTestCase {
         XCTAssertEqual(built.startIndex, 1)
     }
 
+    func testFolderPlaybackExcludesSimilarlyNamedSiblingFolders() {
+        let selected = FileInfo(id: "/music/Album/song.mp3", isDirectory: false, displayName: "Song", author: nil, album: nil)
+        let nested = FileInfo(id: "/music/Album/Disc 2/song.mp3", isDirectory: false, displayName: "Disc 2", author: nil, album: nil)
+        let sibling = FileInfo(id: "/music/Album Extras/song.mp3", isDirectory: false, displayName: "Extra", author: nil, album: nil)
+        let store = LibraryStore()
+        store.allItems = [sibling, selected, nested]
+
+        for path in ["/music/Album", "/music/Album/", "/music/Other/../Album"] {
+            let built = BuildPlaybackQueueUseCase().execute(selected: selected, context: .folder(path: path), libraryStore: store)
+            XCTAssertEqual(built.queue.map(\.id), [selected.id, nested.id], path)
+            XCTAssertEqual(built.startIndex, 0)
+        }
+    }
+
+    func testStalePlaybackContextStillPlaysTheSelectedSong() {
+        let selected = FileInfo(id: "/music/selected.mp3", isDirectory: false, displayName: "Selected", author: nil, album: nil)
+        let unrelated = FileInfo(id: "/music/other.mp3", isDirectory: false, displayName: "Other", author: nil, album: nil)
+        for files in [[], [unrelated]] {
+            let built = BuildPlaybackQueueUseCase().execute(selected: selected, context: .explicit(files: files), libraryStore: LibraryStore())
+            XCTAssertEqual(built.queue.map(\.id), [selected.id])
+            XCTAssertEqual(built.startIndex, 0)
+        }
+    }
+
     func testVideoFormatsAreClassifiedAsSupportedVideoMedia() {
         let extensions = ["mp4", "mov", "mkv", "webm", "avi", "wmv", "vob", "mpg"]
 

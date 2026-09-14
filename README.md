@@ -22,7 +22,7 @@ The interface uses native Liquid Glass on iOS 26, with compatible styling on ear
 ## Get started
 
 1. Build and launch Medio using the instructions below.
-2. Open **Home → … → Import Files**, or add media to Medio's folder in the Files app.
+2. Tap **Import Files** on an empty Home screen, open **Home → … → Import Files**, or add media to Medio's folder in the Files app. If part of an import fails, Medio lists the affected filenames and errors while keeping the successfully imported files.
 3. Browse folders in Home, or use Library to browse the indexed songs, albums, and artists.
 4. Tap a track to start playback and open Now Playing for playback controls and lyrics.
 5. Configure priority folders, the Favorites priority switch, online access, and other preferences in **Home → … → Settings**. Long-press a priority card to change its folder or make it an image card.
@@ -116,3 +116,9 @@ GitHub Actions builds the app and runs both test targets using the [iOS CI workf
 | `Resources` | App assets and configuration |
 
 For a fuller product and architecture overview, start with the [Medio Atlas](Medio%20Notes/00%20Atlas/Medio%20Atlas.md).
+
+## Repository workflow
+
+`main` is the integration branch. Make each change on a short-lived feature or fix branch, open a pull request, and merge after review and passing CI. GitHub deletes merged branches automatically. A permanent `dev` branch is unnecessary unless the project later needs a separate release staging process.
+
+Keep source, assets, shared Xcode configuration, the package lockfile, tests, and documentation in Git. Build output, signing credentials, Xcode user settings, and personal Obsidian settings stay local and are ignored. The `Medio Notes` Markdown files remain shared project documentation.

@@ -18,11 +18,13 @@ struct BuildPlaybackQueueUseCase {
         case .artist(let name):
             libraryStore.artists.first(where: { $0.name == name })?.songs ?? []
         case .folder(let path):
-            libraryStore.allItems.filter { $0.id.hasPrefix(path) && !$0.isDirectory }
+            libraryStore.allItems.filter { Self.isInFolder($0.id, folderPath: path) && !$0.isDirectory }
         case .explicit(let files):
             files.filter { !$0.isDirectory }
         }
-        let files = contextFiles.filter(Self.isPlayableMedia)
+        let playableFiles = contextFiles.filter(Self.isPlayableMedia)
+        // A stale context must never start an unrelated song when the tapped item is missing.
+        let files = playableFiles.contains(where: { $0.id == selected.id }) ? playableFiles : [selected]
 
         let queue: [MediaItem] = files.map {
             MediaItem(
@@ -38,6 +40,12 @@ struct BuildPlaybackQueueUseCase {
 
         let startIndex = queue.firstIndex(where: { $0.id == selected.id }) ?? 0
         return (queue, min(max(startIndex, 0), max(queue.count - 1, 0)))
+    }
+
+    static func isInFolder(_ itemPath: String, folderPath: String) -> Bool {
+        let folder = URL(fileURLWithPath: folderPath).standardizedFileURL.path
+        let item = URL(fileURLWithPath: itemPath).standardizedFileURL.path
+        return item != folder && item.hasPrefix(folder == "/" ? "/" : folder + "/")
     }
 
     private static func isPlayableMedia(_ file: FileInfo) -> Bool {
