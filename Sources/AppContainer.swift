@@ -64,4 +64,50 @@ final class AppContainer: ObservableObject {
         startupCoordinator = AppStartupCoordinator()
     }
 
+    struct MaintenanceResult {
+        let organizedLyrics: Int
+        let retriedArtwork: Int
+    }
+
+    private func checkLibraryRefresh() throws {
+        if let message = libraryStore.lastStorageScanError {
+            throw NSError(domain: "LibraryMaintenance", code: 1,
+                          userInfo: [NSLocalizedDescriptionKey: message])
+        }
+    }
+
+    private var maintenanceTask: Task<MaintenanceResult, Error>?
+
+    /// Shared by pull-to-refresh and Settings. Coalesces overlapping requests.
+    func refreshLivedInLibrary(
+        progress: @escaping @MainActor (String) -> Void = { _ in }
+    ) async throws -> MaintenanceResult {
+        if let maintenanceTask { return try await maintenanceTask.value }
+        let task = Task { @MainActor in
+            let scan = ScanLibraryUseCase(dataSource: mediaLibraryRepository)
+            progress(String(localized: "Refreshing library snapshot..."))
+            ArtworkCache.shared.clear()
+            await libraryStore.refresh(scanUseCase: scan)
+            try checkLibraryRefresh()
+            progress(String(localized: "Organizing loose lyrics files..."))
+            let service = LyricsOrganizationService(associationRepository: lyricsFileAssociationRepository)
+            let organized = try await service.organize { processed, total in
+                progress(total == 0 ? String(localized: "No loose lyrics files found.")
+                    : String(localized: "Organizing loose lyrics files \(processed)/\(total)..."))
+            }
+            if organized > 0 {
+                progress(String(localized: "Refreshing snapshot after lyrics organization..."))
+                await libraryStore.refresh(scanUseCase: scan)
+                try checkLibraryRefresh()
+            }
+            ArtworkCache.shared.clear()
+            let songIDs = libraryStore.librarySongs.map(\.id)
+            ArtworkCache.shared.retry(songIDs)
+            return MaintenanceResult(organizedLyrics: organized, retriedArtwork: songIDs.count)
+        }
+        maintenanceTask = task
+        defer { maintenanceTask = nil }
+        return try await task.value
+    }
+
 }

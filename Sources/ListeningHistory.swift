@@ -94,7 +94,7 @@ struct MedioReCappedReportExporter {
     private func reportsRootURL() throws -> URL {
         if let outputRoot { return outputRoot }
         guard let documents = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else {
-            throw NSError(domain: "MedioReCappedReportExporter", code: 1, userInfo: [NSLocalizedDescriptionKey: "Missing Documents directory."])
+            throw NSError(domain: "MedioReCappedReportExporter", code: 1, userInfo: [NSLocalizedDescriptionKey: String(localized: "Missing Documents directory.")])
         }
         let currentRoot = documents.appendingPathComponent("Medio ReCapped", isDirectory: true)
         migratePreviousReportDirectory(to: currentRoot, in: documents)

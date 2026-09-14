@@ -26,9 +26,9 @@ enum SystemUIError: Error, LocalizedError {
 
     var errorDescription: String? {
         switch self {
-        case .cancelled: return "Cancelled."
-        case .invalidSelection: return "Invalid selection."
-        case .presentationUnavailable: return "UI presentation unavailable."
+        case .cancelled: return String(localized: "Cancelled.")
+        case .invalidSelection: return String(localized: "Invalid selection.")
+        case .presentationUnavailable: return String(localized: "UI presentation unavailable.")
         }
     }
 }

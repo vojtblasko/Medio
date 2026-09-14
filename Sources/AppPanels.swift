@@ -290,8 +290,7 @@ struct FavoritesPanel: View {
     private var fileGridColumns: [GridItem] {
         [GridItem(
             .adaptive(
-                minimum: FileBrowserIconSizing.gridMinimum(for: browserIconSize),
-                maximum: FileBrowserIconSizing.gridMaximum(for: browserIconSize)
+                minimum: FileBrowserIconSizing.gridMinimum(for: browserIconSize)
             ),
             spacing: 12,
             alignment: .top
@@ -317,12 +316,8 @@ struct FavoritesPanel: View {
         .textInputAutocapitalization(.never)
         .disableAutocorrection(true)
         .navigationTitle("Favorites")
-        .toolbar {
-            CircularTrailingToolbarItem {
-                favoritesOptionsMenu
-            }
-        }
-        .sheet(isPresented: $showViewOptions) {
+        .browserOptionsToolbar { favoritesOptionsMenu }
+        .fullScreenCover(isPresented: $showViewOptions) {
             FileBrowserViewOptionsPanel(iconSize: $browserIconSize)
         }
     }
@@ -581,19 +576,19 @@ struct FileAboutPanel: View {
             .navigationTitle(aboutTitle)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar { aboutToolbar }
-            .sheet(isPresented: $showEditMetadata, onDismiss: {
+            .fullScreenCover(isPresented: $showEditMetadata, onDismiss: {
                 loadOverride()
                 nowPlayingVM.syncFromStore()
             }) {
                 EditMetadataView(
-                    title: aboutTitle.replacingOccurrences(of: "About", with: String(localized: "Edit")),
+                    title: String(localized: "Edit Details"),
                     filePaths: [path],
                     currentOverride: metadataOverride,
                     defaultValues: defaultMetadataValues,
                     fields: editableFields
                 )
             }
-            .sheet(item: $pendingCoverCrop) { pending in
+            .fullScreenCover(item: $pendingCoverCrop) { pending in
                 CoverImageCropSheet(
                     image: pending.image,
                     onCancel: { pendingCoverCrop = nil },
@@ -603,7 +598,7 @@ struct FileAboutPanel: View {
                     }
                 )
             }
-            .sheet(isPresented: $showFolderColorSheet) {
+            .fullScreenCover(isPresented: $showFolderColorSheet) {
                 FolderColorPickerSheet(
                     initialColor: currentFolderColor,
                     hasSavedColor: metadataOverride?.folderColorRgba != nil,
@@ -750,7 +745,7 @@ struct FileAboutPanel: View {
             HStack(spacing: 12) {
                 AboutCoverThumbnail(path: path, item: item, librarySongs: container.libraryStore.librarySongs)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(item?.isDirectory == true ? "Folder Icon" : "Cover Icon")
+                    Text(item?.isDirectory == true ? String(localized: "Folder Icon") : String(localized: "Cover Icon"))
                         .foregroundStyle(.primary)
                     Text(subtitle)
                         .font(.caption)
@@ -1119,7 +1114,7 @@ private struct FileProperties {
                 itemCount = "\(children.count)"
             } else {
                 let ext = url.pathExtension.uppercased()
-                kind = ext.isEmpty ? "File" : "\(ext) File"
+                kind = ext.isEmpty ? String(localized: "File") : String(localized: "\(ext) File")
                 if let bytes = attrs?[.size] as? NSNumber {
                     size = ByteCountFormatter.string(fromByteCount: bytes.int64Value, countStyle: .file)
                 } else {
@@ -1168,8 +1163,7 @@ struct FolderPanel: View {
     private var fileGridColumns: [GridItem] {
         [GridItem(
             .adaptive(
-                minimum: FileBrowserIconSizing.gridMinimum(for: browserIconSize),
-                maximum: FileBrowserIconSizing.gridMaximum(for: browserIconSize)
+                minimum: FileBrowserIconSizing.gridMinimum(for: browserIconSize)
             ),
             spacing: 12,
             alignment: .top
@@ -1188,7 +1182,7 @@ struct FolderPanel: View {
             }
         }
         .nativeDefaultDropDestination(
-            title: "Drop in \(folderTitle)",
+            title: String(localized: "Drop in \(folderTitle)"),
             isTargeted: browserViewStyle != .desktop && activeFolderDropPath == path
         )
         .onPreferenceChange(NativeFolderDropFramePreferenceKey.self) { folderDropFrames = $0 }
@@ -1218,7 +1212,7 @@ struct FolderPanel: View {
         .disableAutocorrection(true)
         .navigationTitle(folderTitle)
         .navigationBarTitleDisplayMode(.inline)
-        .toolbar { folderToolbar }
+        .browserOptionsToolbar(showsSelection: isSelecting) { folderToolbar }
         .alert("Move", isPresented: $showMoveStatus) {
             Button("OK", role: .cancel) { }
         } message: {
@@ -1227,7 +1221,7 @@ struct FolderPanel: View {
         .onAppear {
             MedioLastOpenedStore.record(path)
         }
-        .sheet(isPresented: $showViewOptions) {
+        .fullScreenCover(isPresented: $showViewOptions) {
             FileBrowserViewOptionsPanel(iconSize: $browserIconSize)
         }
     }
@@ -1276,7 +1270,7 @@ struct FolderPanel: View {
             librarySongs: container.libraryStore.librarySongs,
             storageContainerPath: path,
             filesystemContainerPath: path,
-            defaultDropTitle: "Drop in \(folderTitle)",
+            defaultDropTitle: String(localized: "Drop in \(folderTitle)"),
             emptyTitle: vm.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? String(localized: "Folder Empty") : String(localized: "No Results"),
             emptySystemImage: "folder",
             isSelecting: isSelecting,
@@ -1314,9 +1308,9 @@ struct FolderPanel: View {
     }
 
 
-    @ToolbarContentBuilder
-    private var folderToolbar: some ToolbarContent {
-        ToolbarItemGroup(placement: .navigationBarTrailing) {
+    @ViewBuilder
+    private var folderToolbar: some View {
+        Group {
             if isSelecting {
                 Button("Move") {
                     router.presentMoveItems(selectedMovableIDs)
@@ -1651,7 +1645,7 @@ struct PrioritySlotAboutPanel: View {
                 }
             }
             Section("Image") {
-                Button(artworkPath == nil ? "Choose Image" : "Change Image") {
+                Button(artworkPath == nil ? String(localized: "Choose Image") : String(localized: "Change Image")) {
                     showCoverSourceDialog = true
                 }
                 if artworkPath != nil {
@@ -1677,7 +1671,7 @@ struct PrioritySlotAboutPanel: View {
             }
             Button("Cancel", role: .cancel) {}
         }
-        .sheet(item: $pendingCoverCrop) { pending in
+        .fullScreenCover(item: $pendingCoverCrop) { pending in
             CoverImageCropSheet(
                 image: pending.image,
                 aspectRatio: cardAspectRatio,
@@ -1771,7 +1765,7 @@ struct MoveItemPanel: View {
     var body: some View {
         Group {
             List {
-                Section(paths.count == 1 ? "Item" : "Items") {
+                Section(paths.count == 1 ? String(localized: "Item") : String(localized: "Items")) {
                     ForEach(paths, id: \.self) { path in
                         Text(URL(fileURLWithPath: path).lastPathComponent)
                     }
@@ -1812,7 +1806,7 @@ struct MoveItemPanel: View {
                 }
             }
             .searchable(text: $query, prompt: "Search")
-            .navigationTitle(paths.count == 1 ? "Move Item" : "Move Items")
+            .navigationTitle(paths.count == 1 ? String(localized: "Move Item") : String(localized: "Move Items"))
         }
     }
 
@@ -1910,7 +1904,7 @@ struct AlbumPanel: View {
                     }
                 } else {
                     ForEach(AlbumTrackOrdering.sections(for: vm.filtered)) { trackSection in
-                        Section(trackSection.title ?? "Music Files") {
+                        Section(trackSection.title ?? String(localized: "Music Files")) {
                             ForEach(trackSection.songs) { song in
                                 Button {
                                     Task {
@@ -1935,7 +1929,7 @@ struct AlbumPanel: View {
                 }
                 Section("About \(name)") {
                     CompatibleLabeledContent(String(localized: "Tracks"), value: "\(vm.metadata.songCountInAlbumFolders)")
-                    CompatibleLabeledContent(String(localized: "Artist"), value: vm.metadata.subtitleArtist)
+                    CompatibleLabeledContent(String(localized: "Artist"), value: localizedMediaPlaceholder(vm.metadata.subtitleArtist))
                     CompatibleLabeledContent(String(localized: "Year"), value: vm.metadata.subtitleYear)
                     CompatibleLabeledContent(String(localized: "Genre"), value: vm.metadata.genre)
                     CompatibleLabeledContent(String(localized: "Credits"), value: vm.metadata.credits)
@@ -1975,7 +1969,7 @@ struct AlbumPanel: View {
     }
 
     private var albumHeroSubtitle: String {
-        let artist = vm.metadata.subtitleArtist == "NA" ? nil : vm.metadata.subtitleArtist
+        let artist = vm.metadata.subtitleArtist == "NA" ? nil : localizedMediaPlaceholder(vm.metadata.subtitleArtist)
         let year = vm.metadata.subtitleYear == "NA" ? nil : vm.metadata.subtitleYear
         let tracks = String(localized: "\(vm.metadata.songCountInAlbumFolders) songs")
         return [artist, year, tracks]
@@ -1991,6 +1985,7 @@ private struct AlbumHeaderArtwork: View {
     private let artworkCache: ArtworkCache = .shared
     @State private var representativeOverride: VisualMetadataOverride?
     @State private var artworkRevision = 0
+    @State private var fullResolutionArtwork: UIImage?
 
     private var representativePath: String? {
         songs.first?.id
@@ -2001,7 +1996,7 @@ private struct AlbumHeaderArtwork: View {
             return image
         }
         guard let path = representativePath else { return nil }
-        return artworkCache.image(for: path)
+        return fullResolutionArtwork ?? artworkCache.image(for: path)
     }
 
     var body: some View {
@@ -2035,7 +2030,14 @@ private struct AlbumHeaderArtwork: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(.systemBackground))
-        .onAppear(perform: loadOverride)
+        .task(id: representativePath) {
+            loadOverride()
+            fullResolutionArtwork = nil
+            guard let path = representativePath else { return }
+            let image = await ArtworkCache.extractArtwork(for: path)
+            guard !Task.isCancelled else { return }
+            fullResolutionArtwork = image
+        }
         .onReceive(NotificationCenter.default.publisher(for: .medioVisualMetadataOverridesDidChange)) { _ in
             loadOverride()
         }
@@ -2091,7 +2093,6 @@ private struct AlbumTrackRow: View {
             }
         }
         .padding(.vertical, displayTrackNumber == nil ? 0 : 4)
-        .playbackQueueProgress(for: item.id)
     }
 
     private var displayTrackNumber: String? {
@@ -2198,7 +2199,7 @@ struct AlbumAboutPanel: View {
             }
         }
         .navigationTitle("About \(name)")
-        .sheet(isPresented: $showEditMetadata, onDismiss: loadOverride) {
+        .fullScreenCover(isPresented: $showEditMetadata, onDismiss: loadOverride) {
             EditMetadataView(
                 title: "Edit \(name)",
                 filePaths: filePaths,
@@ -2212,7 +2213,7 @@ struct AlbumAboutPanel: View {
                 fields: [.album, .artist, .genre, .year]
             )
         }
-        .sheet(item: $pendingCoverCrop) { pending in
+        .fullScreenCover(item: $pendingCoverCrop) { pending in
             CoverImageCropSheet(
                 image: pending.image,
                 onCancel: { pendingCoverCrop = nil },
@@ -2559,7 +2560,7 @@ struct ArtistAboutPanel: View {
             }
         }
         .navigationTitle("About Artist")
-        .sheet(isPresented: $showEditMetadata, onDismiss: loadOverride) {
+        .fullScreenCover(isPresented: $showEditMetadata, onDismiss: loadOverride) {
             EditMetadataView(
                 title: String(localized: "Edit Artist"),
                 filePaths: filePaths,
@@ -2572,7 +2573,7 @@ struct ArtistAboutPanel: View {
                 fields: [.artist, .genre, .year]
             )
         }
-        .sheet(item: $pendingCoverCrop) { pending in
+        .fullScreenCover(item: $pendingCoverCrop) { pending in
             CoverImageCropSheet(
                 image: pending.image,
                 onCancel: { pendingCoverCrop = nil },
@@ -2752,7 +2753,7 @@ struct FolderBrowserScreen: View {
             List(children) { item in
                 Button(item.displayName) {
                     if item.isDirectory {
-                        router.present(.folderBrowser(path: item.id))
+                        router.push(.folderBrowser(path: item.id))
                     } else {
                         router.present(.fileAbout(path: item.id))
                     }

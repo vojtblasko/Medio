@@ -21,7 +21,6 @@ enum OnlineFeature: String, CaseIterable, Identifiable, Sendable {
 final class OnlineAccessStore: ObservableObject {
     static let shared = OnlineAccessStore()
     @Published var masterEnabled = false
-    @Published private(set) var disabledFeatures: Set<String>
     @Published private(set) var transferredBytes: [String: Int64]
     @Published private(set) var trackingSince: Date
     private let defaults: UserDefaults
@@ -31,19 +30,25 @@ final class OnlineAccessStore: ObservableObject {
 
     init(defaults: UserDefaults = .standard) {
         self.defaults = defaults
-        disabledFeatures = Set(defaults.stringArray(forKey: Self.disabledKey) ?? [])
+        // Migrate obsolete per-function switches to the single master permission.
+        defaults.removeObject(forKey: Self.disabledKey)
         let stored = defaults.dictionary(forKey: Self.usageKey) ?? [:]
         transferredBytes = stored.compactMapValues { ($0 as? NSNumber)?.int64Value }
         trackingSince = defaults.object(forKey: Self.sinceKey) as? Date ?? Date()
         defaults.set(trackingSince, forKey: Self.sinceKey)
     }
 
-    func isEnabled(_ feature: OnlineFeature) -> Bool { !disabledFeatures.contains(feature.rawValue) }
-    func allows(_ feature: OnlineFeature) -> Bool { masterEnabled && isEnabled(feature) }
-    func setEnabled(_ enabled: Bool, for feature: OnlineFeature) {
-        if enabled { disabledFeatures.remove(feature.rawValue) } else { disabledFeatures.insert(feature.rawValue) }
-        defaults.set(Array(disabledFeatures), forKey: Self.disabledKey)
+    func allows(_ feature: OnlineFeature) -> Bool { masterEnabled }
+
+    /// All app-owned internet requests use this gate and the shared feature registry.
+    /// Adding an OnlineFeature also adds its process and traffic counter to Settings.
+    func data(for request: URLRequest, feature: OnlineFeature, using session: URLSession) async throws -> (Data, URLResponse) {
+        guard allows(feature) else { throw URLError(.notConnectedToInternet) }
+        let result = try await session.data(for: request, delegate: OnlineUsageTaskDelegate(feature: feature))
+        guard allows(feature) else { throw URLError(.cancelled) }
+        return result
     }
+
     func record(bytes: Int64, for feature: OnlineFeature) {
         guard bytes > 0 else { return }
         transferredBytes[feature.rawValue, default: 0] += bytes
@@ -968,7 +973,7 @@ final class WikimediaPublicDomainArtistImageRepository: OnlineArtistImageReposit
             ArtistProfileDebugLog.write("request attempt=\(attempt + 1) service=\(service.debugName) url=\(summary)")
             DiagnosticsCenter.recordInternet("Request attempt \(attempt + 1) | service=\(service.debugName) | url=\(summary)")
             do {
-                let (data, response) = try await session.data(for: request, delegate: OnlineUsageTaskDelegate(feature: feature))
+                let (data, response) = try await OnlineAccessStore.shared.data(for: request, feature: feature, using: session)
                 if let http = response as? HTTPURLResponse, !(200..<300).contains(http.statusCode) {
                     ArtistProfileDebugLog.write("request http-failed attempt=\(attempt + 1) service=\(service.debugName) status=\(http.statusCode) url=\(summary)")
                     DiagnosticsCenter.recordInternet("HTTP failure | service=\(service.debugName) | status=\(http.statusCode) | url=\(summary)")

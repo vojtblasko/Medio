@@ -7,10 +7,8 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-		FC9B20260912000000000011 /* InfoPlist.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = FC9A20260912000000000011 /* InfoPlist.xcstrings */; };
-		FC9B20260912000000000010 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = FC9A20260912000000000010 /* Localizable.xcstrings */; };
-		FC9B20260912000000000001 /* SharingReceiverPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC9A20260912000000000001 /* SharingReceiverPage.swift */; };
-		FC9B20260912000000000000 /* LocalAudioSharing.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC9A20260912000000000000 /* LocalAudioSharing.swift */; };
+		FD1300010000000000000002 /* SharingSecurity.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1300020000000000000002 /* SharingSecurity.swift */; };
+		FD1300010000000000000001 /* SharingAudioPreparation.swift in Sources */ = {isa = PBXBuildFile; fileRef = FD1300020000000000000001 /* SharingAudioPreparation.swift */; };
 		100000000000000000000007 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 100000000000000000000017 /* Assets.xcassets */; };
 		1000000000000000000000E1 /* MedioTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000E0 /* MedioTests.swift */; };
 		1000000000000000000000F1 /* MedioUITests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1000000000000000000000F0 /* MedioUITests.swift */; };
@@ -24,6 +22,10 @@
 		FC6F0BCF2FCC59A900F80BD6 /* EditMetadataView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC6F0BCE2FCC59A900F80BD6 /* EditMetadataView.swift */; };
 		FC6F0BD22FCC59B700F80BD6 /* ArtistProfileRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC6F0BD02FCC59B700F80BD6 /* ArtistProfileRepository.swift */; };
 		FC6F0BD32FCC59B700F80BD6 /* BatterySaverService.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC6F0BD12FCC59B700F80BD6 /* BatterySaverService.swift */; };
+		FC9B20260912000000000000 /* LocalAudioSharing.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC9A20260912000000000000 /* LocalAudioSharing.swift */; };
+		FC9B20260912000000000001 /* SharingReceiverPage.swift in Sources */ = {isa = PBXBuildFile; fileRef = FC9A20260912000000000001 /* SharingReceiverPage.swift */; };
+		FC9B20260912000000000010 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = FC9A20260912000000000010 /* Localizable.xcstrings */; };
+		FC9B20260912000000000011 /* InfoPlist.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = FC9A20260912000000000011 /* InfoPlist.xcstrings */; };
 		FCB100022FB7000000000002 /* AppScreens.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCB100012FB7000000000001 /* AppScreens.swift */; };
 		FCB100042FB7000000000004 /* AppPanels.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCB100032FB7000000000003 /* AppPanels.swift */; };
 		FCB100062FB7000000000006 /* NowPlayingPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCB100052FB7000000000005 /* NowPlayingPanel.swift */; };
@@ -78,10 +80,8 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		FC9A20260912000000000011 /* InfoPlist.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = InfoPlist.xcstrings; sourceTree = "<group>"; };
-		FC9A20260912000000000010 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
-		FC9A20260912000000000001 /* SharingReceiverPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharingReceiverPage.swift; sourceTree = "<group>"; };
-		FC9A20260912000000000000 /* LocalAudioSharing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalAudioSharing.swift; sourceTree = "<group>"; };
+		FD1300020000000000000002 /* SharingSecurity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharingSecurity.swift; sourceTree = "<group>"; };
+		FD1300020000000000000001 /* SharingAudioPreparation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharingAudioPreparation.swift; sourceTree = "<group>"; };
 		100000000000000000000010 /* Medio.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Medio.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		100000000000000000000016 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		100000000000000000000017 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -99,6 +99,10 @@
 		FC6F0BCE2FCC59A900F80BD6 /* EditMetadataView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditMetadataView.swift; sourceTree = "<group>"; };
 		FC6F0BD02FCC59B700F80BD6 /* ArtistProfileRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ArtistProfileRepository.swift; sourceTree = "<group>"; };
 		FC6F0BD12FCC59B700F80BD6 /* BatterySaverService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BatterySaverService.swift; sourceTree = "<group>"; };
+		FC9A20260912000000000000 /* LocalAudioSharing.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalAudioSharing.swift; sourceTree = "<group>"; };
+		FC9A20260912000000000001 /* SharingReceiverPage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SharingReceiverPage.swift; sourceTree = "<group>"; };
+		FC9A20260912000000000010 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		FC9A20260912000000000011 /* InfoPlist.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = InfoPlist.xcstrings; sourceTree = "<group>"; };
 		FCB100012FB7000000000001 /* AppScreens.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppScreens.swift; sourceTree = "<group>"; };
 		FCB100032FB7000000000003 /* AppPanels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppPanels.swift; sourceTree = "<group>"; };
 		FCB100052FB7000000000005 /* NowPlayingPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NowPlayingPanel.swift; sourceTree = "<group>"; };
@@ -175,6 +179,8 @@
 			children = (
 				FC9A20260912000000000001 /* SharingReceiverPage.swift */,
 				FC9A20260912000000000000 /* LocalAudioSharing.swift */,
+				FD1300020000000000000002 /* SharingSecurity.swift */,
+				FD1300020000000000000001 /* SharingAudioPreparation.swift */,
 				FC5A10022FD7000000000002 /* AppInfrastructure.swift */,
 				FC5A11042FD7000000000014 /* DesktopPositionStore.swift */,
 				FC5A11022FD7000000000012 /* FileMoveService.swift */,
@@ -348,6 +354,9 @@
 				cs,
 				de,
 				fr,
+				"fr-CA",
+				bg,
+				sk,
 				Base,
 			);
 			mainGroup = 100000000000000000000020;
@@ -383,6 +392,8 @@
 			files = (
 				FC9B20260912000000000001 /* SharingReceiverPage.swift in Sources */,
 				FC9B20260912000000000000 /* LocalAudioSharing.swift in Sources */,
+				FD1300010000000000000002 /* SharingSecurity.swift in Sources */,
+				FD1300010000000000000001 /* SharingAudioPreparation.swift in Sources */,
 				FC5A10032FD7000000000003 /* AppInfrastructure.swift in Sources */,
 				FC5A11052FD7000000000015 /* DesktopPositionStore.swift in Sources */,
 				FC5A11032FD7000000000013 /* FileMoveService.swift in Sources */,
@@ -483,13 +494,14 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.medio.vojtblasko;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OBJC_BRIDGING_HEADER = "";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
 				SWIFT_STRICT_CONCURRENCY = complete;
 				SWIFT_VERSION = 6.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Debug;
 		};
@@ -514,13 +526,14 @@
 				MARKETING_VERSION = 1.0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.medio.vojtblasko;
 				PRODUCT_NAME = "$(TARGET_NAME)";
-				SUPPORTED_PLATFORMS = "iphonesimulator iphoneos";
+				SUPPORTED_PLATFORMS = "iphoneos iphonesimulator";
+				SUPPORTS_MACCATALYST = NO;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OBJC_BRIDGING_HEADER = "";
 				SWIFT_OPTIMIZATION_LEVEL = "-O";
 				SWIFT_STRICT_CONCURRENCY = complete;
 				SWIFT_VERSION = 6.0;
-				TARGETED_DEVICE_FAMILY = "1,2";
+				TARGETED_DEVICE_FAMILY = 1;
 			};
 			name = Release;
 		};

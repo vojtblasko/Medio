@@ -16,8 +16,21 @@ final class MedioUITests: XCTestCase {
         let button = app.navigationBars.buttons.matching(
             NSPredicate(format: "identifier == %@ OR label == %@", "BackButton", previousTitle)
         ).firstMatch
-        wait(button)
-        XCTAssertTrue(button.isHittable)
+        if button.exists { button.tap() }
+        else {
+            let close = app.buttons["sheet_close"]
+            wait(close)
+            XCTAssertTrue(close.isHittable)
+            close.tap()
+        }
+    }
+
+    private func tapVisibleButton(_ app: XCUIApplication, _ label: String, file: StaticString = #filePath, line: UInt = #line) {
+        let matches = app.buttons.matching(NSPredicate(format: "label == %@ OR identifier == %@", label, label))
+        guard let button = matches.allElementsBoundByIndex.first(where: { $0.isHittable }) else {
+            XCTFail("No visible button: \(label)", file: file, line: line)
+            return
+        }
         button.tap()
     }
 
@@ -26,6 +39,49 @@ final class MedioUITests: XCTestCase {
         app.launchArguments = ["-medioUITestMode"] + (reset ? ["-medioUITestReset"] : []) + arguments
         app.launchEnvironment["UITEST_DISABLE_ANIMATIONS"] = "1"
         return app
+    }
+
+    func testEncryptionSetupRemainsOpenDuringPlayback() {
+        let app = makeApp(arguments: ["-medioStartFirstPlayable", "-medioInitialRoute", "settings"])
+        app.launch()
+        let setup = app.buttons["sharing_encryption_setup"]
+        for _ in 0..<6 where !setup.exists || !setup.isHittable { app.swipeUp() }
+        wait(setup)
+        setup.tap()
+        wait(app.navigationBars["Encrypted Sharing"])
+        // Exercise the page across playback updates and scrolling, which dismissed
+        // the old Section-owned presentation.
+        app.swipeUp()
+        app.swipeDown()
+        XCTAssertTrue(app.navigationBars["Encrypted Sharing"].exists)
+        XCTAssertFalse(app.tabBars.buttons["Home"].isHittable)
+        goBack(app, to: "Settings")
+        wait(app.navigationBars["Settings"])
+    }
+
+    func testUnpinnedFavoritesRemainAccessibleInHomeFiles() {
+        let app = makeApp()
+        app.launch()
+        wait(app.buttons["Song One"])
+        app.buttons["Song One"].tap()
+        app.buttons["Now Playing"].tap()
+        wait(app.buttons["Add Favorite"])
+        app.buttons["Add Favorite"].tap()
+        wait(app.buttons["Remove Favorite"])
+        app.buttons["now_playing_close"].tap()
+        app.buttons["Home Options"].tap()
+        app.buttons["Settings"].tap()
+        let priority = app.switches["settings_priority_favorites"]
+        for _ in 0..<10 where !priority.exists || !priority.isHittable { app.swipeUp() }
+        wait(priority)
+        priority.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
+        XCTAssertEqual(priority.value as? String, "0")
+        app.buttons["sheet_close"].tap()
+        wait(app.buttons["Favorites"])
+        app.buttons["Favorites"].tap()
+        wait(app.navigationBars["Favorites"])
+        wait(app.buttons.matching(NSPredicate(format: "label CONTAINS %@", "Song One")).firstMatch)
+        XCTAssertTrue(app.tabBars.buttons["Library"].isHittable)
     }
 
     func testHomePanelsAndFolderFlow() {
@@ -47,6 +103,7 @@ final class MedioUITests: XCTestCase {
 
         app.buttons["Example Folder"].tap()
         wait(app.buttons["Folder Options"])
+        XCTAssertTrue(app.tabBars.buttons["Library"].isHittable)
         goBack(app, to: "Home")
 
         app.buttons["Song One"].tap()
@@ -86,11 +143,14 @@ final class MedioUITests: XCTestCase {
 
         wait(app.buttons["Example Album"])
         app.buttons["Example Album"].tap()
-        wait(app.buttons["Song Two"])
-        app.buttons["Song Two"].tap()
+        wait(app.navigationBars["Example Album"])
+        XCTAssertTrue(app.tabBars.buttons["Home"].isHittable)
+        // The tab bar reduces the initial viewport; scroll past the full-size cover.
+        for _ in 0..<5 where !app.buttons["Song Two"].isHittable { app.swipeUp() }
+        tapVisibleButton(app, "Song Two")
 
         wait(app.buttons["Now Playing"])
-        app.buttons["Now Playing"].tap()
+        tapVisibleButton(app, "Now Playing")
         wait(app.buttons["now_playing_close"])
         app.buttons["now_playing_close"].tap()
 
@@ -99,6 +159,45 @@ final class MedioUITests: XCTestCase {
         app.buttons["Example Artist"].tap()
         wait(app.buttons["Artist Options"])
         goBack(app, to: "Library")
+    }
+
+    func testMenuRemainsClickableDuringPlaybackAndDetailScreensHideTabs() {
+        let app = makeApp()
+        app.launch()
+        wait(app.buttons["Song One"])
+        app.buttons["Song One"].tap()
+        let options = app.buttons["Home Options"]
+        wait(options)
+        XCTAssertEqual(options.frame.width, options.frame.height, accuracy: 2)
+        XCTAssertGreaterThanOrEqual(options.frame.width, 44)
+        let circle = XCTAttachment(screenshot: app.screenshot())
+        circle.name = "Circular Home options during playback"
+        circle.lifetime = .keepAlways
+        add(circle)
+        options.tap()
+        let icons = app.buttons["Icons"]
+        wait(icons)
+        // Hold the menu open across several playback progress publications.
+        let stillOpen = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == true"), object: icons)
+        XCTAssertEqual(XCTWaiter.wait(for: [stillOpen], timeout: 2), .completed)
+        icons.press(forDuration: 1.2)
+        wait(app.buttons["file_item_Example Folder"])
+        let grid = XCTAttachment(screenshot: app.screenshot())
+        grid.name = "Uniform icon grid and white progress"; grid.lifetime = .keepAlways; add(grid)
+        options.tap()
+        app.buttons["Settings"].tap()
+        wait(app.navigationBars["Settings"])
+        XCTAssertFalse(app.tabBars.buttons["Home"].exists && app.tabBars.buttons["Home"].isHittable)
+        app.buttons["sheet_close"].tap()
+        app.buttons["Now Playing"].tap()
+        wait(app.buttons["now_playing_queue"])
+        XCTAssertFalse(app.tabBars.buttons["Home"].exists && app.tabBars.buttons["Home"].isHittable)
+        app.buttons["now_playing_queue"].tap()
+        wait(app.navigationBars["Queue"])
+        XCTAssertFalse(app.tabBars.buttons["Home"].exists && app.tabBars.buttons["Home"].isHittable)
+        goBack(app, to: "Back")
+        app.buttons["now_playing_close"].tap()
+        XCTAssertTrue(app.tabBars.buttons["Home"].isHittable)
     }
 
     func testHomeAndLibraryOptionMenus() {
@@ -319,18 +418,17 @@ final class MedioUITests: XCTestCase {
         internet.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
         XCTAssertEqual(internet.value as? String, "1")
         for feature in ["artistLookup", "imageMetadata", "imageDownloads"] {
-            let control = app.switches["settings_online_\(feature)"]
-            wait(control)
-            XCTAssertTrue(control.isEnabled)
+            let row = app.descendants(matching: .any)["settings_online_\(feature)"].firstMatch
+            for _ in 0..<4 where !row.exists || !row.isHittable { app.swipeUp() }
+            wait(row)
+            XCTAssertFalse(app.switches["settings_online_\(feature)"].exists)
         }
         let priority = app.switches["settings_priority_favorites"]
         for _ in 0..<5 where !priority.exists || !priority.isHittable { app.swipeUp() }
         wait(priority)
-        let home = app.switches["settings_home_favorites"]
-        XCTAssertEqual(home.value as? String, "1")
+        XCTAssertFalse(app.switches["settings_home_favorites"].exists)
         priority.coordinate(withNormalizedOffset: CGVector(dx: 0.92, dy: 0.5)).tap()
         XCTAssertEqual(priority.value as? String, "0")
-        XCTAssertEqual(home.value as? String, "1")
     }
 
     func testPriorityImagePickersPresentAboveTheOpenPanel() {
@@ -437,7 +535,7 @@ final class MedioUITests: XCTestCase {
         wait(app.buttons["Create"])
         app.buttons["Create"].tap()
         wait(app.staticTexts["Folder name cannot be empty."])
-        app.buttons["sheet_close"].tap()
+        goBack(app, to: "Example Folder")
         wait(app.buttons["Folder Options"])
         goBack(app, to: "Home")
 
@@ -526,12 +624,17 @@ extension MedioUITests {
             ("en", "en_US", "Home", "Home Options", "Settings", "Ascending", "Name"),
             ("cs", "cs_CZ", "Domů", "Možnosti úvodní stránky", "Nastavení", "Vzestupně", "Název"),
             ("de", "de_DE", "Start", "Startoptionen", "Einstellungen", "Aufsteigend", "Name"),
-            ("fr", "fr_FR", "Accueil", "Options de l’accueil", "Réglages", "Croissant", "Nom")
+            ("fr", "fr_FR", "Accueil", "Options de l’accueil", "Réglages", "Croissant", "Nom"),
+            ("fr-CA", "fr_CA", "Accueil", "Options de l’accueil", "Réglages", "Croissant", "Nom"),
+            ("bg", "bg_BG", "Начало", "Опции за началната страница", "Настройки", "Възходящо", "Име"),
+            ("sk", "sk_SK", "Domov", "Možnosti úvodnej stránky", "Nastavenia", "Vzostupne", "Názov")
         ]
         for (language, locale, home, options, settings, ascending, name) in languages {
             let app = makeApp(arguments: ["-AppleLanguages", "(\(language))", "-AppleLocale", locale])
             app.launch()
             wait(app.tabBars.buttons[home])
+            wait(app.navigationBars[home])
+            XCTAssertFalse(language != "en" && app.navigationBars["Home"].exists)
             wait(app.buttons[options])
             app.buttons[options].tap()
             wait(app.buttons[settings])

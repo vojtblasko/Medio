@@ -8,29 +8,78 @@ import UIKit
 struct NativeBrowserOptionsMenu: View {
     let accessibilityLabel: String
     let makeMenu: () -> UIMenu
-    @Environment(\.medioUsesCompactRootChrome) private var compact
+
+    private var button: some View {
+        NativeBrowserMenuButton(accessibilityLabel: accessibilityLabel, makeMenu: makeMenu)
+            .frame(width: 44, height: 44)
+            .fixedSize()
+            .contentShape(Circle())
+    }
 
     var body: some View {
-        NativeBrowserMenuButton(accessibilityLabel: accessibilityLabel, makeMenu: makeMenu)
-            .frame(width: compact ? 36 : 44, height: compact ? 36 : 44)
+        if #available(iOS 26.0, *) {
+            button.glassEffect(.regular.interactive(), in: Circle())
+        } else {
+            button.background(.thinMaterial, in: Circle())
+        }
     }
+}
+
+/// Choose the toolbar API outside ToolbarContentBuilder, whose conditional
+/// branches require iOS 16. The legacy toolbar remains available on iOS 15.5.
+extension View {
+    @ViewBuilder
+    func browserOptionsToolbar<Content: View>(showsSelection: Bool = false, @ViewBuilder content: () -> Content) -> some View {
+        if #available(iOS 26.0, *) {
+            toolbar {
+                ToolbarItemGroup(placement: .navigationBarTrailing) { content() }
+                    .sharedBackgroundVisibility(showsSelection ? .automatic : .hidden)
+            }
+        } else {
+            toolbar { ToolbarItemGroup(placement: .navigationBarTrailing) { content() } }
+        }
+    }
+}
+
+private final class CircularBrowserButton: UIButton {
+    override var intrinsicContentSize: CGSize { CGSize(width: 44, height: 44) }
 }
 
 private struct NativeBrowserMenuButton: UIViewRepresentable {
     let accessibilityLabel: String
     let makeMenu: () -> UIMenu
 
+    final class Coordinator {
+        var makeMenu: () -> UIMenu
+        init(makeMenu: @escaping () -> UIMenu) { self.makeMenu = makeMenu }
+    }
+
+    func makeCoordinator() -> Coordinator { Coordinator(makeMenu: makeMenu) }
+
     func makeUIView(context: Context) -> UIButton {
-        let button = UIButton(type: .system)
+        let button = CircularBrowserButton(type: .system)
         button.setImage(UIImage(systemName: "ellipsis", withConfiguration: UIImage.SymbolConfiguration(pointSize: 20, weight: .semibold)), for: .normal)
         button.tintColor = .label
+        button.setContentHuggingPriority(.required, for: .horizontal)
+        button.setContentCompressionResistancePriority(.required, for: .horizontal)
         button.showsMenuAsPrimaryAction = true
+        let coordinator = context.coordinator
+        // Resolve fresh actions when opening, without replacing an already presented menu
+        // whenever playback progress publishes another update.
+        button.menu = UIMenu(children: [UIDeferredMenuElement.uncached { completion in
+            completion(coordinator.makeMenu().children)
+        }])
         return button
     }
 
     func updateUIView(_ button: UIButton, context: Context) {
         button.accessibilityLabel = accessibilityLabel
-        button.menu = makeMenu()
+        context.coordinator.makeMenu = makeMenu
+    }
+
+    @available(iOS 16.0, *)
+    func sizeThatFits(_ proposal: ProposedViewSize, uiView: UIButton, context: Context) -> CGSize? {
+        CGSize(width: 44, height: 44)
     }
 }
 
@@ -160,9 +209,6 @@ enum FileBrowserIconSizing {
         clamped(size) + 8
     }
 
-    static func gridMaximum(for size: Double) -> CGFloat {
-        gridMinimum(for: size) + 12
-    }
 }
 
 struct FileBrowserViewOptionsPanel: View {
@@ -188,7 +234,6 @@ struct FileBrowserViewOptionsPanel: View {
                     }
                     .accessibilityIdentifier("browser_icon_size")
 
-                    CompatibleLabeledContent("Icon Size", value: "\(Int(iconSize.rounded())) pt")
                 }
             }
             .navigationTitle("View Options")
@@ -302,6 +347,7 @@ struct HomeScreen: View {
     @State private var folderDropFrames: [String: CGRect] = [:]
     @State private var activeFolderDropPath: String?
     @State private var showViewOptions = false
+    @State private var refreshError: String?
     @State private var isRootTitleCollapsed = false
     @AppStorage("medio.home.viewStyle") private var browserViewStyle: FileBrowserViewStyle = .list
     @AppStorage(FileBrowserIconSizing.storageKey) private var browserIconSize = FileBrowserIconSizing.defaultSize
@@ -325,8 +371,7 @@ struct HomeScreen: View {
     private var fileGridColumns: [GridItem] {
         [GridItem(
             .adaptive(
-                minimum: FileBrowserIconSizing.gridMinimum(for: browserIconSize),
-                maximum: FileBrowserIconSizing.gridMaximum(for: browserIconSize)
+                minimum: FileBrowserIconSizing.gridMinimum(for: browserIconSize)
             ),
             spacing: 12,
             alignment: .top
@@ -393,18 +438,24 @@ struct HomeScreen: View {
             }
         }
         .compatibleRootPageTitle("Home", isCollapsed: isRootTitleCollapsed)
-        .toolbar { mainToolbar }
+        .browserOptionsToolbar(showsSelection: isSelecting) { mainToolbar }
         .alert("Move", isPresented: $showMoveStatus) {
             Button("OK", role: .cancel) { }
         } message: {
             Text(moveStatusMessage)
         }
-        .sheet(isPresented: $showViewOptions) {
+        .fullScreenCover(isPresented: $showViewOptions) {
             FileBrowserViewOptionsPanel(iconSize: $browserIconSize)
         }
         .refreshable {
-            await container.libraryStore.refresh(scanUseCase: ScanLibraryUseCase(dataSource: container.mediaLibraryRepository))
+            do { _ = try await container.refreshLivedInLibrary() }
+            catch { refreshError = String(localized: "Make It Lived In failed: \(error.localizedDescription)") }
         }
+        .alert("Operation Failed", isPresented: Binding(
+            get: { refreshError != nil }, set: { if !$0 { refreshError = nil } }
+        )) {
+            Button("OK", role: .cancel) { refreshError = nil }
+        } message: { Text(refreshError ?? "") }
     }
 
     private var homeScrollTopAnchor: some View {
@@ -591,9 +642,9 @@ struct HomeScreen: View {
         libraryButton(for: item)
     }
 
-    @ToolbarContentBuilder
-    private var mainToolbar: some ToolbarContent {
-        ToolbarItemGroup(placement: .navigationBarTrailing) {
+    @ViewBuilder
+    private var mainToolbar: some View {
+        Group {
             if isSelecting {
                 Button("Move") {
                     router.presentMoveItems(selectedMovableIDs)
@@ -1074,9 +1125,7 @@ struct FileBrowserIconTile: View {
     var body: some View {
         ZStack(alignment: .topTrailing) {
             VStack(alignment: usesCardBackground ? .center : .leading, spacing: usesCardBackground ? 8 : 7) {
-                artwork
-                    .frame(width: iconSize, height: iconSize)
-                    .frame(maxWidth: .infinity, alignment: .center)
+                tileArtwork
 
                 Text(item.displayName)
                     .font(usesCardBackground ? .subheadline : .system(size: 15, weight: .regular))
@@ -1107,7 +1156,6 @@ struct FileBrowserIconTile: View {
             }
         }
         .opacity(isSelecting && !isMovable ? 0.62 : 1)
-        .playbackQueueProgress(for: item.id)
     }
 
     private var subtitle: String {
@@ -1127,39 +1175,54 @@ struct FileBrowserIconTile: View {
     }
 
     @ViewBuilder
-    private var artwork: some View {
+    private var tileArtwork: some View {
+        if usesCardBackground {
+            artwork(size: iconSize)
+                .frame(width: iconSize, height: iconSize)
+                .frame(maxWidth: .infinity)
+        } else {
+            GeometryReader { proxy in
+                artwork(size: proxy.size.width)
+                    .frame(width: proxy.size.width, height: proxy.size.width)
+            }
+            .aspectRatio(1, contentMode: .fit)
+        }
+    }
+
+    @ViewBuilder
+    private func artwork(size: CGFloat) -> some View {
         if MedioShadowFolder.isFavorites(item.id) {
-            FavoriteFolderArtworkView()
+            FavoriteFolderArtworkView(size: size)
         } else {
             switch item.fileType {
             case .folder:
-                FolderArtworkView(path: item.id, librarySongs: librarySongs)
+                FolderArtworkView(path: item.id, librarySongs: librarySongs, size: size, cornerRadius: 8)
             case .music:
                 if showsNowPlayingVisualizer {
                     NowPlayingAudioVisualizerArtwork(
                         isPlaying: playbackStore.isPlaying,
                         levels: playbackStore.audioLevels,
-                        size: iconSize,
+                        size: size,
                         cornerRadius: 8
                     )
                 } else {
-                    SongArtworkView(path: item.id, size: iconSize, cornerRadius: 8)
+                    SongArtworkView(path: item.id, size: size, cornerRadius: 8)
                 }
             case .video:
-                SongArtworkView(path: item.id, size: iconSize, cornerRadius: 8, fallbackSystemImage: "film.fill")
+                SongArtworkView(path: item.id, size: size, cornerRadius: 8, fallbackSystemImage: "film.fill")
             case .lyrics:
-                fileSymbol("doc.text.fill", color: .orange)
+                fileSymbol("doc.text.fill", color: .orange, size: size)
             case .unrecognized:
-                fileSymbol("doc.fill", color: .secondary)
+                fileSymbol("doc.fill", color: .secondary, size: size)
             }
         }
     }
 
-    private func fileSymbol(_ name: String, color: Color) -> some View {
+    private func fileSymbol(_ name: String, color: Color, size: CGFloat) -> some View {
         Image(systemName: name)
-            .font(.system(size: 28, weight: .medium))
+            .font(.system(size: size * 0.48, weight: .medium))
             .foregroundStyle(color)
-            .frame(width: 52, height: 52)
+            .frame(width: size, height: size)
             .background(Color(.systemGray5), in: RoundedRectangle(cornerRadius: 8))
     }
 }
@@ -1825,7 +1888,7 @@ struct MultiItemDragPreview: View {
                 HStack(spacing: 8) {
                     Image(systemName: iconName)
                         .foregroundStyle(Color.accentColor)
-                    Text(count > 1 ? "\(count) items" : title)
+                    Text(count > 1 ? String(localized: "\(count) items") : title)
                         .font(.caption.weight(.semibold))
                         .lineLimit(1)
                         .foregroundStyle(.primary)
@@ -3020,7 +3083,7 @@ struct LibraryScreen: View {
         .rootChromeCollapseObserver { updateRootTitleCollapsed($0) }
         .searchable(text: $vm.query, placement: .navigationBarDrawer(displayMode: .automatic), prompt: "Search")
         .compatibleRootPageTitle("Library", isCollapsed: isRootTitleCollapsed)
-        .toolbar { libraryToolbar }
+        .browserOptionsToolbar(showsSelection: isSelecting) { libraryToolbar }
         .alert("Import Files", isPresented: $showImportStatus) {
             Button("OK", role: .cancel) { }
         } message: {
@@ -3043,9 +3106,9 @@ struct LibraryScreen: View {
         }
     }
 
-    @ToolbarContentBuilder
-    private var libraryToolbar: some ToolbarContent {
-        ToolbarItemGroup(placement: .navigationBarTrailing) {
+    @ViewBuilder
+    private var libraryToolbar: some View {
+        Group {
             if isSelecting {
                 Button("Move") {
                     router.presentMoveItems(selectedItemIDs.sorted())
@@ -3367,7 +3430,7 @@ struct PlaygroundScreen: View {
         }
     }
 
-    private func metricRow(_ title: String, value: Int) -> some View {
+    private func metricRow(_ title: LocalizedStringKey, value: Int) -> some View {
         HStack {
             Text(title)
             Spacer()
@@ -3435,7 +3498,7 @@ struct MiniPlayerBar: View {
                     }
                     .buttonStyle(.plain)
                     .disabled(playbackStore.nowPlaying == nil)
-                    .accessibilityLabel(playbackStore.playback.isPlaying ? "Pause" : "Play")
+                    .accessibilityLabel(playbackStore.playback.isPlaying ? String(localized: "Pause") : String(localized: "Play"))
 
                     Button {
                         skipNextFromButton()
@@ -3457,7 +3520,7 @@ struct MiniPlayerBar: View {
                         Rectangle()
                             .fill(Color.primary.opacity(0.12))
                         Rectangle()
-                            .fill(Color.accentColor)
+                            .fill(Color.white)
                             .frame(width: proxy.size.width * progress)
                     }
                 }
@@ -3566,7 +3629,7 @@ struct MiniPlayerBar: View {
                     Capsule()
                         .fill(Color.primary.opacity(0.14))
                     Capsule()
-                        .fill(Color.accentColor)
+                        .fill(Color.white)
                         .frame(width: proxy.size.width * progress)
                 }
             }
@@ -3576,8 +3639,8 @@ struct MiniPlayerBar: View {
             .allowsHitTesting(false)
         }
         .frame(height: 54)
+        .background { shape.fill(.clear).liquidGlassCard(cornerRadius: 18) }
         .clipShape(shape)
-        .liquidGlassCard(cornerRadius: 18)
         .contentShape(shape)
     }
 

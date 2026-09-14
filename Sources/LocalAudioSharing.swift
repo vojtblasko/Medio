@@ -5,6 +5,7 @@ import SwiftUI
 import UIKit
 @preconcurrency import AVFoundation
 import Darwin
+import CoreImage
 
 /// An explicit foreground session. Audio files are never captured from other apps.
 @MainActor
@@ -17,12 +18,31 @@ final class LocalAudioSharing: ObservableObject {
 
     private let playbackStore: PlaybackStore
     private var server: LocalAudioHTTPServer?
+    private var certificateServer: LocalAudioHTTPServer?
+    private var tlsIdentity: SharingTLSIdentity?
+    @Published private(set) var certificateAddress: URL?
+    @Published private(set) var certificateFingerprint = ""
+
+    var joinAddress: URL? {
+        guard let address else { return nil }
+        var parts = URLComponents(url: address, resolvingAgainstBaseURL: false)
+        parts?.fragment = "code=" + accessCode
+        return parts?.url
+    }
     private var subscription: AnyCancellable?
     private var preparation: Task<Void, Never>?
     private var preparedPath: String?
     private var track: SharedAudioTrack?
     private var sessionID = UUID()
     private var previousIdleTimerDisabled = false
+    @Published private(set) var isPreparingAudio = false
+    @Published var reduceBandwidth = UserDefaults.standard.bool(forKey: "medio.sharing.reduceBandwidth") {
+        didSet {
+            UserDefaults.standard.set(reduceBandwidth, forKey: "medio.sharing.reduceBandwidth")
+            preparedPath = nil
+            update(playback: playbackStore.playback)
+        }
+    }
 
     init(playbackStore: PlaybackStore) {
         self.playbackStore = playbackStore
@@ -37,6 +57,14 @@ final class LocalAudioSharing: ObservableObject {
             status = String(localized: "Connect to Wi-Fi to share audio.")
             return
         }
+        let identity: SharingTLSIdentity
+        do { identity = try SharingTLSIdentity.make(host: host) }
+        catch {
+            status = String(localized: "Could not create the encrypted sharing session. Please try again.")
+            return
+        }
+        tlsIdentity = identity
+        certificateFingerprint = identity.fingerprint
         sessionID = UUID()
         let id = sessionID
         accessCode = String(format: "%06u", arc4random_uniform(1_000_000))
@@ -45,14 +73,14 @@ final class LocalAudioSharing: ObservableObject {
         status = String(localized: "Starting sharing…")
         previousIdleTimerDisabled = UIApplication.shared.isIdleTimerDisabled
         UIApplication.shared.isIdleTimerDisabled = true
-        let server = LocalAudioHTTPServer(code: accessCode, page: SharingReceiverPage.html) { [weak self] event in
+        let server = LocalAudioHTTPServer(code: accessCode, page: SharingReceiverPage.html, tlsIdentity: identity) { [weak self] event in
             Task { @MainActor in
                 guard let self, self.sessionID == id else { return }
                 if case .bytes(let count) = event { self.transferredBytes += count; return }
                 guard self.isEnabled else { return }
                 switch event {
                 case .ready(let port):
-                    self.address = Self.listenerURL(host: host, port: port)
+                    self.address = Self.listenerURL(host: host, port: port, encrypted: true)
                     self.status = String(localized: "Ready for listeners")
                 case .failed:
                     self.stop()
@@ -61,6 +89,23 @@ final class LocalAudioSharing: ObservableObject {
                 }
             }
         }
+        let certificates = LocalAudioHTTPServer(code: "", page: "", certificateDownload: identity.rootCertificate) { [weak self] event in
+            Task { @MainActor in
+                guard let self, self.sessionID == id else { return }
+                if case .bytes(let count) = event { self.transferredBytes += count; return }
+                guard self.isEnabled else { return }
+                switch event {
+                case .ready(let port):
+                    self.certificateAddress = Self.listenerURL(host: host, port: port)?.appendingPathComponent("certificate.cer")
+                case .failed:
+                    self.stop()
+                    self.status = String(localized: "Could not start sharing. Check Local Network access in iOS Settings.")
+                case .bytes: break
+                }
+            }
+        }
+        certificateServer = certificates
+        certificates.start()
         self.server = server
         server.start()
         update(playback: playbackStore.playback)
@@ -73,10 +118,16 @@ final class LocalAudioSharing: ObservableObject {
         preparation = nil
         server?.stop()
         server = nil
+        certificateServer?.stop()
+        certificateServer = nil
+        tlsIdentity = nil
+        certificateAddress = nil
+        certificateFingerprint = ""
         address = nil
         accessCode = ""
         preparedPath = nil
         track = nil
+        isPreparingAudio = false
         status = String(localized: "Sharing is off")
         UIApplication.shared.isIdleTimerDisabled = previousIdleTimerDisabled
     }
@@ -87,20 +138,24 @@ final class LocalAudioSharing: ObservableObject {
         if preparedPath != item?.id {
             preparedPath = item?.id
             track = nil
+            isPreparingAudio = false
             preparation?.cancel()
             if let item {
                 let id = sessionID
+                let compact = reduceBandwidth
+                isPreparingAudio = true
                 preparation = Task { [weak self] in
-                    let candidate = await SharedAudioTrack.prepare(item: item)
+                    let candidate = await SharedAudioTrack.prepare(item: item, compact: compact)
                     guard !Task.isCancelled, let self, self.isEnabled, self.sessionID == id,
                           self.preparedPath == item.id else { return }
+                    self.isPreparingAudio = false
                     self.track = candidate
                     self.update(playback: self.playbackStore.playback)
                 }
             }
         }
         let message = item == nil ? String(localized: "Play a song in Medio to begin.")
-            : (track == nil ? String(localized: "This file cannot be shared. Use an unprotected MP3, M4A, AAC, WAV, AIFF, or FLAC audio file.") : "")
+            : (isPreparingAudio ? String(localized: "Preparing audio for sharing…") : (track == nil ? String(localized: "This file cannot be shared. Use an unprotected MP3, M4A, AAC, WAV, AIFF, or FLAC audio file.") : ""))
         server.update(track: track, state: SharedAudioState(
             track: track?.id, title: item?.title ?? "", artist: item?.artist ?? "",
             position: Double(playback.positionMs) / 1000, playing: playback.isPlaying && track != nil,
@@ -108,11 +163,12 @@ final class LocalAudioSharing: ObservableObject {
         ))
     }
 
-    static func listenerURL(host: String, port: UInt16) -> URL? {
+    static func listenerURL(host: String, port: UInt16, encrypted: Bool = false) -> URL? {
         // An IPv6 literal needs brackets; interface-scoped addresses are not portable
         // to the receiving device, so wifiAddress excludes them.
         let authority = host.contains(":") ? "[\(host)]" : host
-        return URL(string: "http://\(authority):\(port)")
+        let scheme = encrypted ? "https" : "http"
+        return URL(string: "\(scheme)://\(authority):\(port)")
     }
 
     private static func wifiAddress() -> String? {
@@ -144,6 +200,7 @@ struct SharedAudioTrack: Sendable {
     let url: URL
     let mimeType: String
     let size: Int64
+    var temporaryAudio: SharedTemporaryAudio? = nil
 
     static func validatedURL(path: String, documents: URL) -> URL? {
         let url = URL(fileURLWithPath: path).resolvingSymlinksInPath().standardizedFileURL
@@ -153,18 +210,25 @@ struct SharedAudioTrack: Sendable {
         return url
     }
 
-    static func prepare(item: MediaItem) async -> SharedAudioTrack? {
-        guard !item.isVideo, let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first,
-              let url = validatedURL(path: item.id, documents: documents) else { return nil }
+    static func prepare(item: MediaItem, compact: Bool = false) async -> SharedAudioTrack? {
+        guard let documents = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first,
+              let source = validatedURL(path: item.id, documents: documents) else { return nil }
         let types = ["mp3": "audio/mpeg", "m4a": "audio/mp4", "aac": "audio/aac", "wav": "audio/wav",
                      "aif": "audio/aiff", "aiff": "audio/aiff", "flac": "audio/flac"]
-        guard let mime = types[url.pathExtension.lowercased()] else { return nil }
-        let asset = AVURLAsset(url: url)
+        let asset = AVURLAsset(url: source)
         guard (try? await asset.load(.hasProtectedContent)) == false,
-              (try? await asset.load(.isPlayable)) == true,
+              (try? await asset.load(.isPlayable)) == true else { return nil }
+        let copy: SharedTemporaryAudio?
+        if compact || item.isVideo {
+            guard let output = try? await SharingAudioPreparation.makeAudioCopy(from: source, compact: compact) else { return nil }
+            copy = SharedTemporaryAudio(url: output)
+        } else { copy = nil }
+        let url = copy?.url ?? source
+        guard let mime = types[url.pathExtension.lowercased()],
               let size = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize, size > 0 else { return nil }
-        return SharedAudioTrack(id: UUID().uuidString, url: url, mimeType: mime, size: Int64(size))
+        return SharedAudioTrack(id: UUID().uuidString, url: url, mimeType: mime, size: Int64(size), temporaryAudio: copy)
     }
+
 }
 
 struct SharedAudioState: Codable, Sendable {
@@ -182,6 +246,8 @@ final class LocalAudioHTTPServer: @unchecked Sendable {
     enum Event: Sendable { case ready(UInt16), failed, bytes(Int64) }
     private let queue = DispatchQueue(label: "medio.local-audio-server", qos: .utility)
     private let restrictToWiFi: Bool
+    private let tlsIdentity: SharingTLSIdentity?
+    private let certificateDownload: Data?
     private let code: String
     private let token = UUID().uuidString + UUID().uuidString
     private let page: Data
@@ -190,6 +256,7 @@ final class LocalAudioHTTPServer: @unchecked Sendable {
     private var connections: [UUID: Peer] = [:]
     private var track: SharedAudioTrack?
     private var state = SharedAudioState()
+    private var stateUpdatedAt = ProcessInfo.processInfo.systemUptime
     private var failedJoins: [Date] = []
     private var pendingBytes: Int64 = 0
     private var lastUsageReport = Date()
@@ -204,7 +271,9 @@ final class LocalAudioHTTPServer: @unchecked Sendable {
         deinit { try? file?.close() }
     }
 
-    init(code: String, page: String, restrictToWiFi: Bool = true, event: @escaping @Sendable (Event) -> Void) {
+    init(code: String, page: String, restrictToWiFi: Bool = true, tlsIdentity: SharingTLSIdentity? = nil, certificateDownload: Data? = nil, event: @escaping @Sendable (Event) -> Void) {
+        self.tlsIdentity = tlsIdentity
+        self.certificateDownload = certificateDownload
         self.code = code
         self.restrictToWiFi = restrictToWiFi
         self.page = Data(page.utf8)
@@ -214,7 +283,12 @@ final class LocalAudioHTTPServer: @unchecked Sendable {
     func start() {
         queue.async { [self] in
             do {
-                let parameters = NWParameters.tcp
+                // Production audio never falls back to plaintext. The sole HTTP endpoint
+                // exposes a public certificate, with no code, token, metadata or audio.
+                guard !restrictToWiFi || tlsIdentity != nil || certificateDownload != nil else {
+                    event(.failed); return
+                }
+                let parameters = try tlsIdentity.map { NWParameters(tls: try $0.options(), tcp: NWProtocolTCP.Options()) } ?? NWParameters.tcp
                 if restrictToWiFi {
                     parameters.requiredInterfaceType = .wifi
                 } else {
@@ -224,7 +298,7 @@ final class LocalAudioHTTPServer: @unchecked Sendable {
                 parameters.includePeerToPeer = false
                 let listener = try NWListener(using: parameters, on: .any)
                 self.listener = listener
-                if restrictToWiFi {
+                if restrictToWiFi && certificateDownload == nil {
                     listener.service = NWListener.Service(name: "Medio Audio", type: "_medio-audio._tcp")
                 }
                 listener.stateUpdateHandler = { [weak self, weak listener] state in
@@ -250,6 +324,7 @@ final class LocalAudioHTTPServer: @unchecked Sendable {
             }
             self.track = track
             self.state = state
+            self.stateUpdatedAt = ProcessInfo.processInfo.systemUptime
         }
     }
 
@@ -304,6 +379,13 @@ final class LocalAudioHTTPServer: @unchecked Sendable {
               request.target.hasPrefix("/"), !request.target.hasPrefix("//") else {
             reply(id, status: "400 Bad Request"); return
         }
+        if let certificateDownload {
+            guard url.path == "/certificate.cer", request.method == "GET" || request.method == "HEAD" else {
+                reply(id, status: "404 Not Found"); return
+            }
+            reply(id, type: "application/x-x509-ca-cert", body: certificateDownload, head: request.method == "HEAD")
+            return
+        }
         if url.path == "/", request.method != "POST" {
             reply(id, type: "text/html; charset=utf-8", body: page, head: request.method == "HEAD"); return
         }
@@ -320,7 +402,9 @@ final class LocalAudioHTTPServer: @unchecked Sendable {
         guard supplied == token else { reply(id, status: "403 Forbidden"); return }
         guard request.method != "POST" else { reply(id, status: "405 Method Not Allowed"); return }
         if url.path == "/state" {
-            reply(id, type: "application/json", body: (try? JSONEncoder().encode(state)) ?? Data(), head: request.method == "HEAD")
+            var current = state
+            if current.playing { current.position += max(0, ProcessInfo.processInfo.systemUptime - stateUpdatedAt) }
+            reply(id, type: "application/json", body: (try? JSONEncoder().encode(current)) ?? Data(), head: request.method == "HEAD")
         } else if let track, url.path == "/audio/" + track.id {
             stream(id, track: track, rangeHeader: request.headers["range"], head: request.method == "HEAD")
         } else { reply(id, status: "404 Not Found") }
@@ -434,26 +518,90 @@ struct AudioByteRange: Equatable {
 
 struct AudioSharingSettingsSection: View {
     @ObservedObject var sharing: LocalAudioSharing
+    @EnvironmentObject private var router: AppRouter
     var body: some View {
         Section("Share Audio") {
             Toggle("Share with Other Headphones or Speakers", isOn: Binding(get: { sharing.isEnabled }, set: { $0 ? sharing.start() : sharing.stop() }))
                 .accessibilityIdentifier("settings_audio_sharing")
+            Toggle("Reduce Audio Bandwidth", isOn: $sharing.reduceBandwidth)
+                .accessibilityIdentifier("settings_sharing_compression")
+            Text("Creates a temporary 96 kbps AAC copy. Videos share only their audio. Preparing a copy may take time; original files are unchanged.")
+                .font(.caption).foregroundStyle(.secondary)
+            if sharing.isPreparingAudio { ProgressView("Preparing audio for sharing…") }
             Text("Open the address below in Safari on another device on the same Wi-Fi, enter the code, and tap Listen. Connect that device to your headphones or speaker.")
                 .font(.caption).foregroundStyle(.secondary)
+            Button("Set Up Encryption") { router.present(.sharingEncryptionSetup) }
+                .accessibilityIdentifier("sharing_encryption_setup")
             if let address = sharing.address {
+                Text("Set up certificate trust on the listening device before scanning the join QR code. If Safari says the connection is not private, return to Set Up Encryption; do not bypass the warning.")
+                    .font(.caption).foregroundStyle(.secondary)
                 Text(address.absoluteString).textSelection(.enabled)
                     .accessibilityIdentifier("sharing_address")
                 Text("Access code: \(sharing.accessCode)").monospacedDigit()
                     .accessibilityIdentifier("sharing_code")
-                Button("Copy Address") { UIPasteboard.general.string = address.absoluteString }
+                if let joinAddress = sharing.joinAddress {
+                    SharingQRCode(url: joinAddress)
+                        .accessibilityIdentifier("sharing_join_qr")
+                    Text("Scan to open the encrypted player and fill in the access code. Then tap Listen.")
+                        .font(.caption).foregroundStyle(.secondary)
+                    Button("Copy Join Link") { UIPasteboard.general.string = joinAddress.absoluteString }
+                }
             }
             Text("Local data this session: \(ByteCountFormatter.string(fromByteCount: sharing.transferredBytes, countStyle: .file))")
                 .font(.caption).foregroundStyle(.secondary)
             Text(sharing.status).font(.caption).foregroundStyle(.secondary)
-            Text("Keep Medio open while sharing. Leaving the app stops the session. Use a trusted Wi-Fi network; audio travels locally without encryption. Playback timing and file support depend on the receiving browser.")
+            Text("Keep Medio open while sharing. Leaving the app stops the session. Audio and access codes use encrypted HTTPS. Each receiving device needs the one-time certificate setup. Playback timing depends on Wi-Fi and the receiving browser.")
                 .font(.caption).foregroundStyle(.secondary)
             Text("Share only audio you have permission to share. Protected audio and other apps’ sound are not supported. No internet connection is required.")
                 .font(.caption).foregroundStyle(.secondary)
         }
+    }
+}
+
+
+struct SharingQRCode: View {
+    let url: URL
+    static func image(for url: URL) -> UIImage? {
+        guard let filter = CIFilter(name: "CIQRCodeGenerator") else { return nil }
+        filter.setValue(Data(url.absoluteString.utf8), forKey: "inputMessage")
+        filter.setValue("M", forKey: "inputCorrectionLevel")
+        guard let output = filter.outputImage,
+              let image = CIContext().createCGImage(output, from: output.extent) else { return nil }
+        return UIImage(cgImage: image)
+    }
+    var body: some View {
+        if let image = Self.image(for: url) {
+            Image(uiImage: image).interpolation(.none).resizable()
+                .frame(width: 208, height: 208).padding(20)
+                .background(Color.white, in: RoundedRectangle(cornerRadius: 12))
+                .frame(maxWidth: .infinity)
+                .accessibilityLabel("Sharing QR Code")
+        }
+    }
+}
+
+struct SharingEncryptionSetup: View {
+    @ObservedObject var sharing: LocalAudioSharing
+    var body: some View {
+        List {
+            Section("One-Time Setup") {
+                Text("Keep Medio open on the host. Complete these steps on the other device in Safari, not in the camera’s preview browser.")
+                if sharing.certificateAddress == nil {
+                    Text("Turn on Share with Other Headphones or Speakers to create the certificate QR code.")
+                }
+                Text("On the listening device, scan this certificate QR code. Install the downloaded Medio Local Audio profile in Settings → General → VPN & Device Management.")
+                if let url = sharing.certificateAddress {
+                    SharingQRCode(url: url)
+                    Text(url.absoluteString).font(.caption).textSelection(.enabled)
+                }
+                Text("Verify that the downloaded certificate matches the SHA-256 fingerprint shown on this host before trusting it. The certificate download is public; audio is available only through HTTPS.")
+                Text(sharing.certificateFingerprint).font(.caption.monospaced()).textSelection(.enabled)
+                Text("Then open Settings → General → About → Certificate Trust Settings and enable trust for this Medio Local Audio certificate. Return here and scan the join QR code.")
+                Text("Trust only a host you control. Installing a root certificate grants trust to certificates signed by that host. Remove its profile from the listening device when you no longer need it.")
+                Link("Apple’s Certificate Setup Guide", destination: URL(string: "https://support.apple.com/102390")!)
+            }
+        }
+        .navigationTitle("Encrypted Sharing")
+        .accessibilityIdentifier("sharing_encryption_page")
     }
 }

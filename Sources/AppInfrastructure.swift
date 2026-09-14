@@ -161,13 +161,13 @@ enum AppFilePolicyError: LocalizedError, Equatable {
     var errorDescription: String? {
         switch self {
         case .documentsDirectoryUnavailable:
-            return "Documents directory not found."
+            return String(localized: "Documents directory not found.")
         case .invalidName:
-            return "Enter a valid name without slashes or path components."
+            return String(localized: "Enter a valid name without slashes or path components.")
         case .outsideDocuments:
-            return "The selected location is outside Medio."
+            return String(localized: "The selected location is outside Medio.")
         case .destinationIsNotDirectory:
-            return "Choose a valid folder."
+            return String(localized: "Choose a valid folder.")
         }
     }
 }

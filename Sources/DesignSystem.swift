@@ -415,10 +415,13 @@ final class ArtworkCache: ObservableObject {
     }
 
     nonisolated private static func prepareForCache(_ image: UIImage) -> UIImage {
-        let maxDimension: CGFloat = 320
-        let largestSide = max(image.size.width, image.size.height)
-        guard largestSide > maxDimension, largestSide > 0 else { return image }
-        let scale = maxDimension / largestSide
+        // Square browser frames crop the short edge. Sizing only the long edge
+        // made portrait/landscape covers visibly blurry after aspect-fill cropping.
+        let longest = max(image.size.width, image.size.height)
+        let shortest = min(image.size.width, image.size.height)
+        guard shortest > 0 else { return image }
+        let scale = min(1, 512 / shortest, 2048 / longest)
+        guard scale < 1 else { return image }
         let targetSize = CGSize(width: image.size.width * scale, height: image.size.height * scale)
         let format = UIGraphicsImageRendererFormat.default()
         format.scale = 1
@@ -597,7 +600,7 @@ struct NowPlayingAudioVisualizerArtwork: View {
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                 .stroke(Color.accentColor.opacity(0.22), lineWidth: 1)
         )
-        .accessibilityLabel(isPlaying ? "Now playing" : "Paused")
+        .accessibilityLabel(isPlaying ? String(localized: "Now playing") : String(localized: "Paused"))
     }
 }
 
@@ -634,18 +637,6 @@ struct PlaybackIndicatorSettingsSection: View {
                 .font(.caption).foregroundStyle(.secondary)
         }
     }
-}
-
-struct PlaybackQueueProgressModifier: ViewModifier {
-    let path: String
-    @EnvironmentObject private var playbackStore: PlaybackStore
-    func body(content: Content) -> some View {
-        content.opacity(playbackStore.pastQueueItemIDs.contains(path) ? 0.5 : 1)
-    }
-}
-
-extension View {
-    func playbackQueueProgress(for path: String) -> some View { modifier(PlaybackQueueProgressModifier(path: path)) }
 }
 
 struct MediaItemRow: View {
@@ -692,7 +683,6 @@ struct MediaItemRow: View {
         .padding(.vertical, 4)
         .frame(maxWidth: .infinity, alignment: .leading)
         .contentShape(Rectangle())
-        .playbackQueueProgress(for: item.id)
         .onAppear(perform: loadOverride)
         .onReceive(NotificationCenter.default.publisher(for: .medioVisualMetadataOverridesDidChange)) { notification in
             guard let changedPath = notification.userInfo?["path"] as? String else {
@@ -733,11 +723,12 @@ struct MediaItemRow: View {
 }
 
 struct FavoriteFolderArtworkView: View {
+    var size: CGFloat = 44
     var body: some View {
         Image(systemName: "star.fill")
-            .font(.system(size: 22, weight: .bold))
+            .font(.system(size: size * 0.5, weight: .bold))
             .foregroundStyle(.yellow)
-        .frame(width: 44, height: 44)
+        .frame(width: size, height: size)
         .background(RoundedRectangle(cornerRadius: 6).fill(Color(.systemGray5)))
     }
 }

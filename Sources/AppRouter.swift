@@ -89,16 +89,16 @@ final class AppRouter: ObservableObject {
     }
 
     func push(_ route: SheetRoute) {
-        // Present the player above the current page so dismissing it never restores
-        // a hidden tab bar midway through a navigation transition.
-        if route == .nowPlaying {
+        // Browsing stays in the selected tab; tools and playback open full screen.
+        if sheet != nil {
             present(route)
-            return
+        } else if route.isBrowsingPage {
+            var path = pushPath
+            path.append(route)
+            pushPath = path
+        } else {
+            present(route)
         }
-        DiagnosticsCenter.recordInteraction("Navigated to: \(route.id)")
-        var path = pushPath(for: selectedTab)
-        path.append(route)
-        setPushPath(path, for: selectedTab)
     }
 
     func pop() {
