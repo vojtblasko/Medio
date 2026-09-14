@@ -341,7 +341,16 @@ final class MedioUITests: XCTestCase {
             let medio = app.cells.matching(NSPredicate(format: "label BEGINSWITH %@", "Medio")).firstMatch
             wait(medio); medio.tap()
         }
-        wait(file); file.tap()
+        wait(file)
+        // In Files' icon view the cell's center can fall between its preview and
+        // filename. Target the visible filename after navigation has settled.
+        let filename = file.staticTexts["Priority Test Image"].firstMatch
+        wait(filename)
+        let canTapFilename = XCTNSPredicateExpectation(predicate: NSPredicate(format: "hittable == true"), object: filename)
+        XCTAssertEqual(XCTWaiter.wait(for: [canTapFilename], timeout: 5), .completed)
+        filename.tap()
+        let pickerDismissed = XCTNSPredicateExpectation(predicate: NSPredicate(format: "exists == false"), object: file)
+        XCTAssertEqual(XCTWaiter.wait(for: [pickerDismissed], timeout: 10), .completed, "Selecting the image must dismiss the Files picker")
         wait(app.navigationBars["Crop Cover"])
         let crop = app.images["cover_crop_viewport"]
         wait(crop)
