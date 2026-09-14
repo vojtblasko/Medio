@@ -344,6 +344,7 @@ struct HomeScreen: View {
     @State private var moveStatusMessage = ""
     @State private var showMoveStatus = false
     @State private var isMovingItems = false
+    @State private var isImporting = false
     @State private var folderDropFrames: [String: CGRect] = [:]
     @State private var activeFolderDropPath: String?
     @State private var showViewOptions = false
@@ -517,6 +518,7 @@ struct HomeScreen: View {
                             systemImage: "folder"
                         ) {
                             Text(homeEmptyStateDescription)
+                            homeEmptyImportButton
                         }
                     }
                 }
@@ -572,6 +574,7 @@ struct HomeScreen: View {
                                 systemImage: "folder"
                             ) {
                                 Text(homeEmptyStateDescription)
+                                homeEmptyImportButton
                             }
                             .frame(maxWidth: .infinity)
                         }
@@ -590,6 +593,20 @@ struct HomeScreen: View {
         .background(Color.clear)
     }
 
+    @ViewBuilder
+    private var homeEmptyImportButton: some View {
+        if vm.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+            Button {
+                Task { await importFilesFromPicker() }
+            } label: {
+                Label("Import Files", systemImage: "square.and.arrow.down")
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(isImporting)
+            .accessibilityIdentifier("home_empty_import")
+        }
+    }
+
     private var homeDesktopContent: some View {
         DesktopFileCanvas(
             items: vm.filteredItems,
@@ -599,6 +616,7 @@ struct HomeScreen: View {
             defaultDropTitle: String(localized: "Drop in Home"),
             emptyTitle: vm.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? String(localized: "No Files") : String(localized: "No Results"),
             emptySystemImage: "folder",
+            onEmptyImport: vm.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty && !isImporting ? { Task { await importFilesFromPicker() } } : nil,
             isLoading: container.libraryStore.isLoading,
             loadingProgress: container.libraryStore.loadingProgress,
             isSelecting: isSelecting,
@@ -666,7 +684,7 @@ struct HomeScreen: View {
                 BrowserOptionsMenu.section([
                     BrowserOptionsMenu.action("Select", "checkmark.circle") { isSelecting = true },
                     BrowserOptionsMenu.action(String(localized: "New Folder"), "folder.badge.plus") { router.present(.createFolder(parentPath: nil)) },
-                    BrowserOptionsMenu.action("Import Files", "square.and.arrow.down") { Task { await importFilesFromPicker() } },
+                    BrowserOptionsMenu.action("Import Files", "square.and.arrow.down", enabled: !isImporting) { Task { await importFilesFromPicker() } },
                     BrowserOptionsMenu.action("Settings", "gearshape") { router.present(.settings) }
                 ]),
                 BrowserOptionsMenu.views(selected: browserViewStyle) { browserViewStyle = $0 },
@@ -1049,15 +1067,24 @@ struct HomeScreen: View {
     }
 
     private func importFilesFromPicker() async {
+        guard !isImporting else { return }
+        isImporting = true
+        defer { isImporting = false }
         do {
             let urls = try await container.documentPickingService.pickFile(
                 contentTypes: [.item],
                 allowsMultipleSelection: true
             )
-            let importedURLs = try await ImportDocumentsUseCase().execute(urls: urls)
-            guard !importedURLs.isEmpty else {
-                moveStatusMessage = String(localized: "No files were imported.")
+            let result = try await ImportDocumentsUseCase().executeBatch(urls: urls)
+            if !result.failures.isEmpty {
+                moveStatusMessage = result.failures.map { "\($0.source.lastPathComponent): \($0.message)" }.joined(separator: "\n")
                 showMoveStatus = true
+            }
+            guard !result.completed.isEmpty else {
+                if result.failures.isEmpty {
+                    moveStatusMessage = String(localized: "No files were imported.")
+                    showMoveStatus = true
+                }
                 return
             }
             await container.libraryStore.refresh(scanUseCase: ScanLibraryUseCase(dataSource: container.mediaLibraryRepository))
@@ -1251,6 +1278,7 @@ struct DesktopFileCanvas<Header: View>: View {
     let defaultDropTitle: String
     let emptyTitle: String
     let emptySystemImage: String
+    let onEmptyImport: (() -> Void)?
     let isLoading: Bool
     let loadingProgress: LibraryScanProgress?
     let isSelecting: Bool
@@ -1278,6 +1306,7 @@ struct DesktopFileCanvas<Header: View>: View {
         defaultDropTitle: String,
         emptyTitle: String,
         emptySystemImage: String,
+        onEmptyImport: (() -> Void)? = nil,
         isLoading: Bool = false,
         loadingProgress: LibraryScanProgress? = nil,
         isSelecting: Bool,
@@ -1299,6 +1328,7 @@ struct DesktopFileCanvas<Header: View>: View {
         self.defaultDropTitle = defaultDropTitle
         self.emptyTitle = emptyTitle
         self.emptySystemImage = emptySystemImage
+        self.onEmptyImport = onEmptyImport
         self.isLoading = isLoading
         self.loadingProgress = loadingProgress
         self.isSelecting = isSelecting
@@ -1327,7 +1357,15 @@ struct DesktopFileCanvas<Header: View>: View {
                                     .frame(width: viewport.size.width)
                                     .padding(.top, 40)
                             } else {
-                                CompatibleContentUnavailableView(emptyTitle, systemImage: emptySystemImage)
+                                CompatibleContentUnavailableView(emptyTitle, systemImage: emptySystemImage) {
+                                    if let onEmptyImport {
+                                        Button(action: onEmptyImport) {
+                                            Label("Import Files", systemImage: "square.and.arrow.down")
+                                        }
+                                        .buttonStyle(.borderedProminent)
+                                        .accessibilityIdentifier("home_empty_import")
+                                    }
+                                }
                                     .frame(width: viewport.size.width)
                                     .padding(.top, 40)
                             }
@@ -3156,6 +3194,7 @@ struct LibraryScreen: View {
 
 
     private func importFilesFromPicker() async {
+        guard !isImporting else { return }
         isImporting = true
         defer { isImporting = false }
         do {
@@ -3163,10 +3202,16 @@ struct LibraryScreen: View {
                 contentTypes: [.item],
                 allowsMultipleSelection: true
             )
-            let importedURLs = try await ImportDocumentsUseCase().execute(urls: urls)
-            guard !importedURLs.isEmpty else {
-                importStatusMessage = String(localized: "No files were imported.")
+            let result = try await ImportDocumentsUseCase().executeBatch(urls: urls)
+            if !result.failures.isEmpty {
+                importStatusMessage = result.failures.map { "\($0.source.lastPathComponent): \($0.message)" }.joined(separator: "\n")
                 showImportStatus = true
+            }
+            guard !result.completed.isEmpty else {
+                if result.failures.isEmpty {
+                    importStatusMessage = String(localized: "No files were imported.")
+                    showImportStatus = true
+                }
                 return
             }
             await container.libraryStore.refresh(

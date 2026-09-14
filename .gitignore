@@ -1,55 +1,31 @@
-# Miscellaneous
-*.class
-*.log
-*.pyc
-*.swp
+# macOS and local editor state
 .DS_Store
-# Local editor state, build output, and credentials
+*.swp
+.idea/
+**/.obsidian/
+
+# Xcode user state and generated output
 xcuserdata/
 *.xcuserstate
 DerivedData/
-**/.obsidian/workspace.json
+.build/
+.buildlog/
+build/
+*.xcarchive/
+*.xcresult/
+*.ipa
+*.dSYM/
+*.dSYM.zip
+*.log
+
+# Local scripts and Swift package build state
+__pycache__/
+*.pyc
+.swiftpm/
+
+# Local credentials and signing material
 .env
 .env.*
 !.env.example
 *.p12
 *.mobileprovision
-.atom/
-.build/
-.buildlog/
-.history
-.svn/
-.swiftpm/
-migrate_working_dir/
-
-# IntelliJ related
-*.iml
-*.ipr
-*.iws
-.idea/
-
-# The .vscode folder contains launch configuration and tasks you configure in
-# VS Code which you may wish to be included in version control, so this line
-# is commented out by default.
-#.vscode/
-
-# Flutter/Dart/Pub related
-**/doc/api/
-**/ios/Flutter/.last_build_id
-.dart_tool/
-.flutter-plugins
-.flutter-plugins-dependencies
-.pub-cache/
-.pub/
-/build/
-
-# Symbolication related
-app.*.symbols
-
-# Obfuscation related
-app.*.map.json
-
-# Android Studio will place build artifacts here
-/android/app/debug
-/android/app/profile
-/android/app/release

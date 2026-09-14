@@ -93,9 +93,9 @@ struct QueueUseCases {
             case .explicit(let explicitFiles):
                 files = explicitFiles
             case .folder(let path):
-                files = libraryStore.librarySongs.filter { $0.id.hasPrefix(path) }
+                files = libraryStore.librarySongs.filter { BuildPlaybackQueueUseCase.isInFolder($0.id, folderPath: path) }
             case .album(let name):
-                files = libraryStore.albums.first(where: { $0.name == name })?.songs ?? []
+                files = AlbumTrackOrdering.sorted(libraryStore.albums.first(where: { $0.name == name })?.songs ?? [])
             case .artist(let name):
                 files = libraryStore.artists.first(where: { $0.name == name })?.songs ?? []
             }
