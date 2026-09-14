@@ -33,10 +33,11 @@ enum SharingReceiverPage {
         document.documentElement.lang=lang;
         const el=id=>document.getElementById(id), audio=el('audio');
         for(const [id,key] of Object.entries({intro:'intro',codeLabel:'code',connect:'connect',listen:'listen',disconnect:'disconnect',note:'note'}))el(id).textContent=t[key];
-        let token='', currentTrack='', latest=null, following=false, generation=0, failures=0;
+        let token='', currentTrack='', latest=null, following=false, generation=0, failures=0, playAttempt=0;
         function requestSignal(ms){const controller=new AbortController();setTimeout(()=>controller.abort(),ms);return controller.signal;}
         const message=text=>{el('status').textContent=text;};
-        function stop(){generation++;token='';currentTrack='';latest=null;following=false;audio.pause();audio.removeAttribute('src');audio.load();el('player').hidden=true;el('join').hidden=false;}
+        function pauseAudio(){playAttempt++;audio.pause();}
+        function stop(){generation++;token='';currentTrack='';latest=null;following=false;pauseAudio();audio.removeAttribute('src');audio.load();el('player').hidden=true;el('join').hidden=false;}
         el('disconnect').onclick=()=>{stop();message('');};
         el('join').onsubmit=async event=>{
           event.preventDefault();el('connect').disabled=true;
@@ -55,7 +56,10 @@ enum SharingReceiverPage {
           else audio.playbackRate=state.playing&&Math.abs(drift)>.15?Math.max(.97,Math.min(1.03,1+drift*.03)):1;
         }
         async function play(){
-          try{await audio.play();el('listen').hidden=true;message('');}catch{message(t.blocked);el('listen').hidden=false;}
+          const attempt=++playAttempt,run=generation,track=currentTrack;
+          const stale=()=>attempt!==playAttempt||run!==generation||track!==currentTrack;
+          try{await audio.play();if(stale())return;el('listen').hidden=true;message('');}
+          catch{if(stale())return;message(t.blocked);el('listen').hidden=false;}
         }
         el('listen').onclick=()=>{
           if(!latest?.track){message(t.wait);return;}
@@ -76,18 +80,18 @@ enum SharingReceiverPage {
             if(state.playing)state.position+=Math.min(1,(state.receivedAt-requestedAt)/2000);
             failures=0;latest=state;el('title').textContent=state.title||t.wait;el('artist').textContent=state.artist;
             if(state.track!==currentTrack){
-              audio.pause();currentTrack=state.track||'';
+              pauseAudio();currentTrack=state.track||'';
               if(currentTrack){audio.src='/audio/'+encodeURIComponent(currentTrack)+'?token='+encodeURIComponent(token);audio.load();}
               else{audio.removeAttribute('src');audio.load();}
               el('listen').hidden=following;
             }
             if(!state.track){message(state.message||t.wait);}
-            else if(following){align(state);if(state.playing){if(audio.paused&&!audio.ended)play();else if(audio.ended){align(state);play();}}else{audio.pause();audio.playbackRate=1;}}
+            else if(following){align(state);if(state.playing){if(audio.paused&&!audio.ended)play();else if(audio.ended){align(state);play();}}else{pauseAudio();audio.playbackRate=1;el('listen').hidden=true;message('');}}
             else message(t.ready);
           }catch{
             if(run!==generation)return;
             // Do not leave the receiver playing a buffered file after the host disappears.
-            audio.pause();if(++failures>=3){stop();message(t.ended);return;}message(t.ended);
+            pauseAudio();if(++failures>=3){stop();message(t.ended);return;}message(t.ended);
           }
           if(run===generation)setTimeout(()=>poll(run),750);
         }

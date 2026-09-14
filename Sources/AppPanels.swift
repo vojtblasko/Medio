@@ -1114,7 +1114,7 @@ private struct FileProperties {
                 itemCount = "\(children.count)"
             } else {
                 let ext = url.pathExtension.uppercased()
-                kind = ext.isEmpty ? "File" : "\(ext) File"
+                kind = ext.isEmpty ? String(localized: "File") : String(localized: "\(ext) File")
                 if let bytes = attrs?[.size] as? NSNumber {
                     size = ByteCountFormatter.string(fromByteCount: bytes.int64Value, countStyle: .file)
                 } else {
@@ -1645,7 +1645,7 @@ struct PrioritySlotAboutPanel: View {
                 }
             }
             Section("Image") {
-                Button(artworkPath == nil ? "Choose Image" : "Change Image") {
+                Button(artworkPath == nil ? String(localized: "Choose Image") : String(localized: "Change Image")) {
                     showCoverSourceDialog = true
                 }
                 if artworkPath != nil {
@@ -1765,7 +1765,7 @@ struct MoveItemPanel: View {
     var body: some View {
         Group {
             List {
-                Section(paths.count == 1 ? "Item" : "Items") {
+                Section(paths.count == 1 ? String(localized: "Item") : String(localized: "Items")) {
                     ForEach(paths, id: \.self) { path in
                         Text(URL(fileURLWithPath: path).lastPathComponent)
                     }
@@ -1806,7 +1806,7 @@ struct MoveItemPanel: View {
                 }
             }
             .searchable(text: $query, prompt: "Search")
-            .navigationTitle(paths.count == 1 ? "Move Item" : "Move Items")
+            .navigationTitle(paths.count == 1 ? String(localized: "Move Item") : String(localized: "Move Items"))
         }
     }
 

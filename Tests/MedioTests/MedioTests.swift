@@ -3549,6 +3549,16 @@ final class AudioSharingReceiverTests: XCTestCase {
         try await waitFor(web, expression: "document.getElementById('title').textContent === 'Next song' && !audio.paused && audio.currentTime > 0 && document.getElementById('listen').hidden", timeout: 60)
         server.update(track: nextTrack, state: SharedAudioState(track: nextTrack.id, title: "Next song", position: 1, playing: false))
         try await waitFor(web, expression: "document.getElementById('audio').paused && document.getElementById('listen').hidden")
+        // Safari can reject a pending play() after the host pauses or changes tracks.
+        // Force that ordering instead of depending on simulator/audio scheduling.
+        try await evaluate(web, script: "window.originalReceiverPlay=audio.play.bind(audio);audio.play=()=>new Promise((resolve,reject)=>{window.rejectDelayedPlay=reject;});true")
+        server.update(track: nextTrack, state: SharedAudioState(track: nextTrack.id, title: "Next song", position: 1, playing: true))
+        try await waitFor(web, expression: "typeof window.rejectDelayedPlay === 'function'")
+        server.update(track: nextTrack, state: SharedAudioState(track: nextTrack.id, title: "Next song", position: 2, playing: false))
+        try await waitFor(web, expression: "latest.playing === false && latest.position === 2")
+        try await evaluate(web, script: "window.rejectDelayedPlay(new DOMException('Playback interrupted','AbortError'));setTimeout(()=>window.delayedPlaySettled=true,0);true")
+        try await waitFor(web, expression: "window.delayedPlaySettled && audio.paused && document.getElementById('listen').hidden && document.getElementById('status').textContent === ''")
+        try await evaluate(web, script: "audio.play=window.originalReceiverPlay;true")
         server.stop()
         try await waitFor(web, expression: "document.getElementById('player').hidden", timeout: 20)
     }

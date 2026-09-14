@@ -2084,7 +2084,7 @@
         "fr-CA": {
           "stringUnit": {
             "state": "translated",
-            "value": "Associer au chanson actuel"
+            "value": "Associer à la chanson actuelle"
           }
         }
       }
@@ -6132,7 +6132,7 @@
         "fr-CA": {
           "stringUnit": {
             "state": "translated",
-            "value": "Les favoris apparaissent parmi les dossiers dès que vous ajoutez un chanson aux favoris."
+            "value": "Les favoris apparaissent parmi les dossiers dès que vous ajoutez une chanson aux favoris."
           }
         }
       }
@@ -8662,7 +8662,7 @@
         "fr-CA": {
           "stringUnit": {
             "state": "translated",
-            "value": "Répéter le chanson"
+            "value": "Répéter la chanson"
           }
         }
       }
@@ -11560,7 +11560,7 @@
         "fr-CA": {
           "stringUnit": {
             "state": "translated",
-            "value": "Lancez un chanson dans Medio pour commencer."
+            "value": "Lancez une chanson dans Medio pour commencer."
           }
         }
       }
@@ -14872,7 +14872,7 @@
         "fr-CA": {
           "stringUnit": {
             "state": "translated",
-            "value": "Affiche le spectre audio à la place de l’image du chanson actuel, de son album ou de son artiste."
+            "value": "Affiche le spectre audio à la place de l’image de la chanson actuelle, de son album ou de son artiste."
           }
         }
       }
@@ -16242,7 +16242,7 @@
         "fr-CA": {
           "stringUnit": {
             "state": "translated",
-            "value": "Le fichier de paroles a été déplacé dans le dossier Lyrics. Choisissez de l’associer ou non au chanson en cours."
+            "value": "Le fichier de paroles a été déplacé dans le dossier Lyrics. Choisissez de l’associer ou non à la chanson en cours."
           }
         }
       }
@@ -18318,6 +18318,52 @@
           "stringUnit": {
             "state": "translated",
             "value": "Activez le partage avec d’autres écouteurs ou haut-parleurs pour créer le code QR du certificat."
+          }
+        }
+      }
+    },
+    "%@ File": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@ File"
+          }
+        },
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Soubor %@"
+          }
+        },
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%@-Datei"
+          }
+        },
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fichier %@"
+          }
+        },
+        "fr-CA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fichier %@"
+          }
+        },
+        "bg": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Файл %@"
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Súbor %@"
           }
         }
       }
