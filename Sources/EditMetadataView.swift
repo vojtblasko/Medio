@@ -12,7 +12,7 @@ enum EditableMetadataField: String, CaseIterable, Identifiable {
     var label: String {
         switch self {
         case .title: return String(localized: "Title")
-        case .artist: return "Artist"
+        case .artist: return String(localized: "Artist")
         case .album: return String(localized: "Album")
         case .genre: return String(localized: "Genre")
         case .year: return String(localized: "Year")

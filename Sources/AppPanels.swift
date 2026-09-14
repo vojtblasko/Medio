@@ -290,8 +290,7 @@ struct FavoritesPanel: View {
     private var fileGridColumns: [GridItem] {
         [GridItem(
             .adaptive(
-                minimum: FileBrowserIconSizing.gridMinimum(for: browserIconSize),
-                maximum: FileBrowserIconSizing.gridMaximum(for: browserIconSize)
+                minimum: FileBrowserIconSizing.gridMinimum(for: browserIconSize)
             ),
             spacing: 12,
             alignment: .top
@@ -582,7 +581,7 @@ struct FileAboutPanel: View {
                 nowPlayingVM.syncFromStore()
             }) {
                 EditMetadataView(
-                    title: aboutTitle.replacingOccurrences(of: "About", with: String(localized: "Edit")),
+                    title: String(localized: "Edit Details"),
                     filePaths: [path],
                     currentOverride: metadataOverride,
                     defaultValues: defaultMetadataValues,
@@ -746,7 +745,7 @@ struct FileAboutPanel: View {
             HStack(spacing: 12) {
                 AboutCoverThumbnail(path: path, item: item, librarySongs: container.libraryStore.librarySongs)
                 VStack(alignment: .leading, spacing: 3) {
-                    Text(item?.isDirectory == true ? "Folder Icon" : "Cover Icon")
+                    Text(item?.isDirectory == true ? String(localized: "Folder Icon") : String(localized: "Cover Icon"))
                         .foregroundStyle(.primary)
                     Text(subtitle)
                         .font(.caption)
@@ -1164,8 +1163,7 @@ struct FolderPanel: View {
     private var fileGridColumns: [GridItem] {
         [GridItem(
             .adaptive(
-                minimum: FileBrowserIconSizing.gridMinimum(for: browserIconSize),
-                maximum: FileBrowserIconSizing.gridMaximum(for: browserIconSize)
+                minimum: FileBrowserIconSizing.gridMinimum(for: browserIconSize)
             ),
             spacing: 12,
             alignment: .top
@@ -1184,7 +1182,7 @@ struct FolderPanel: View {
             }
         }
         .nativeDefaultDropDestination(
-            title: "Drop in \(folderTitle)",
+            title: String(localized: "Drop in \(folderTitle)"),
             isTargeted: browserViewStyle != .desktop && activeFolderDropPath == path
         )
         .onPreferenceChange(NativeFolderDropFramePreferenceKey.self) { folderDropFrames = $0 }
@@ -1272,7 +1270,7 @@ struct FolderPanel: View {
             librarySongs: container.libraryStore.librarySongs,
             storageContainerPath: path,
             filesystemContainerPath: path,
-            defaultDropTitle: "Drop in \(folderTitle)",
+            defaultDropTitle: String(localized: "Drop in \(folderTitle)"),
             emptyTitle: vm.query.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? String(localized: "Folder Empty") : String(localized: "No Results"),
             emptySystemImage: "folder",
             isSelecting: isSelecting,
@@ -1906,7 +1904,7 @@ struct AlbumPanel: View {
                     }
                 } else {
                     ForEach(AlbumTrackOrdering.sections(for: vm.filtered)) { trackSection in
-                        Section(trackSection.title ?? "Music Files") {
+                        Section(trackSection.title ?? String(localized: "Music Files")) {
                             ForEach(trackSection.songs) { song in
                                 Button {
                                     Task {
@@ -1931,7 +1929,7 @@ struct AlbumPanel: View {
                 }
                 Section("About \(name)") {
                     CompatibleLabeledContent(String(localized: "Tracks"), value: "\(vm.metadata.songCountInAlbumFolders)")
-                    CompatibleLabeledContent(String(localized: "Artist"), value: vm.metadata.subtitleArtist)
+                    CompatibleLabeledContent(String(localized: "Artist"), value: localizedMediaPlaceholder(vm.metadata.subtitleArtist))
                     CompatibleLabeledContent(String(localized: "Year"), value: vm.metadata.subtitleYear)
                     CompatibleLabeledContent(String(localized: "Genre"), value: vm.metadata.genre)
                     CompatibleLabeledContent(String(localized: "Credits"), value: vm.metadata.credits)
@@ -1971,7 +1969,7 @@ struct AlbumPanel: View {
     }
 
     private var albumHeroSubtitle: String {
-        let artist = vm.metadata.subtitleArtist == "NA" ? nil : vm.metadata.subtitleArtist
+        let artist = vm.metadata.subtitleArtist == "NA" ? nil : localizedMediaPlaceholder(vm.metadata.subtitleArtist)
         let year = vm.metadata.subtitleYear == "NA" ? nil : vm.metadata.subtitleYear
         let tracks = String(localized: "\(vm.metadata.songCountInAlbumFolders) songs")
         return [artist, year, tracks]
@@ -2755,7 +2753,7 @@ struct FolderBrowserScreen: View {
             List(children) { item in
                 Button(item.displayName) {
                     if item.isDirectory {
-                        router.present(.folderBrowser(path: item.id))
+                        router.push(.folderBrowser(path: item.id))
                     } else {
                         router.present(.fileAbout(path: item.id))
                     }

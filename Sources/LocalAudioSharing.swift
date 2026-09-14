@@ -518,7 +518,7 @@ struct AudioByteRange: Equatable {
 
 struct AudioSharingSettingsSection: View {
     @ObservedObject var sharing: LocalAudioSharing
-    @State private var showEncryptionSetup = false
+    @EnvironmentObject private var router: AppRouter
     var body: some View {
         Section("Share Audio") {
             Toggle("Share with Other Headphones or Speakers", isOn: Binding(get: { sharing.isEnabled }, set: { $0 ? sharing.start() : sharing.stop() }))
@@ -530,7 +530,11 @@ struct AudioSharingSettingsSection: View {
             if sharing.isPreparingAudio { ProgressView("Preparing audio for sharing…") }
             Text("Open the address below in Safari on another device on the same Wi-Fi, enter the code, and tap Listen. Connect that device to your headphones or speaker.")
                 .font(.caption).foregroundStyle(.secondary)
+            Button("Set Up Encryption") { router.present(.sharingEncryptionSetup) }
+                .accessibilityIdentifier("sharing_encryption_setup")
             if let address = sharing.address {
+                Text("Set up certificate trust on the listening device before scanning the join QR code. If Safari says the connection is not private, return to Set Up Encryption; do not bypass the warning.")
+                    .font(.caption).foregroundStyle(.secondary)
                 Text(address.absoluteString).textSelection(.enabled)
                     .accessibilityIdentifier("sharing_address")
                 Text("Access code: \(sharing.accessCode)").monospacedDigit()
@@ -542,8 +546,6 @@ struct AudioSharingSettingsSection: View {
                         .font(.caption).foregroundStyle(.secondary)
                     Button("Copy Join Link") { UIPasteboard.general.string = joinAddress.absoluteString }
                 }
-                Button("Set Up Encryption") { showEncryptionSetup = true }
-                    .accessibilityIdentifier("sharing_encryption_setup")
             }
             Text("Local data this session: \(ByteCountFormatter.string(fromByteCount: sharing.transferredBytes, countStyle: .file))")
                 .font(.caption).foregroundStyle(.secondary)
@@ -552,9 +554,6 @@ struct AudioSharingSettingsSection: View {
                 .font(.caption).foregroundStyle(.secondary)
             Text("Share only audio you have permission to share. Protected audio and other apps’ sound are not supported. No internet connection is required.")
                 .font(.caption).foregroundStyle(.secondary)
-        }
-        .fullScreenCover(isPresented: $showEncryptionSetup) {
-            SharingEncryptionSetup(sharing: sharing)
         }
     }
 }
@@ -581,27 +580,28 @@ struct SharingQRCode: View {
     }
 }
 
-private struct SharingEncryptionSetup: View {
+struct SharingEncryptionSetup: View {
     @ObservedObject var sharing: LocalAudioSharing
-    @Environment(\.dismiss) private var dismiss
     var body: some View {
-        CompatibleNavigationStack {
-            List {
-                Section("One-Time Setup") {
-                    Text("On the listening device, scan this certificate QR code. Install the downloaded Medio Local Audio profile in Settings → General → VPN & Device Management.")
-                    if let url = sharing.certificateAddress {
-                        SharingQRCode(url: url)
-                        Text(url.absoluteString).font(.caption).textSelection(.enabled)
-                    }
-                    Text("Verify that the downloaded certificate matches the SHA-256 fingerprint shown on this host before trusting it. The certificate download is public; audio is available only through HTTPS.")
-                    Text(sharing.certificateFingerprint).font(.caption.monospaced()).textSelection(.enabled)
-                    Text("Then open Settings → General → About → Certificate Trust Settings and enable trust for this Medio Local Audio certificate. Return here and scan the join QR code.")
-                    Text("Trust only a host you control. Installing a root certificate grants trust to certificates signed by that host. Remove its profile from the listening device when you no longer need it.")
-                    Link("Apple’s Certificate Setup Guide", destination: URL(string: "https://support.apple.com/102390")!)
+        List {
+            Section("One-Time Setup") {
+                Text("Keep Medio open on the host. Complete these steps on the other device in Safari, not in the camera’s preview browser.")
+                if sharing.certificateAddress == nil {
+                    Text("Turn on Share with Other Headphones or Speakers to create the certificate QR code.")
                 }
+                Text("On the listening device, scan this certificate QR code. Install the downloaded Medio Local Audio profile in Settings → General → VPN & Device Management.")
+                if let url = sharing.certificateAddress {
+                    SharingQRCode(url: url)
+                    Text(url.absoluteString).font(.caption).textSelection(.enabled)
+                }
+                Text("Verify that the downloaded certificate matches the SHA-256 fingerprint shown on this host before trusting it. The certificate download is public; audio is available only through HTTPS.")
+                Text(sharing.certificateFingerprint).font(.caption.monospaced()).textSelection(.enabled)
+                Text("Then open Settings → General → About → Certificate Trust Settings and enable trust for this Medio Local Audio certificate. Return here and scan the join QR code.")
+                Text("Trust only a host you control. Installing a root certificate grants trust to certificates signed by that host. Remove its profile from the listening device when you no longer need it.")
+                Link("Apple’s Certificate Setup Guide", destination: URL(string: "https://support.apple.com/102390")!)
             }
-            .navigationTitle("Encrypted Sharing")
-            .toolbar { ToolbarItem(placement: .confirmationAction) { Button("Done") { dismiss() } } }
         }
+        .navigationTitle("Encrypted Sharing")
+        .accessibilityIdentifier("sharing_encryption_page")
     }
 }

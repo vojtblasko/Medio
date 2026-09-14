@@ -600,7 +600,7 @@ struct NowPlayingAudioVisualizerArtwork: View {
             RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                 .stroke(Color.accentColor.opacity(0.22), lineWidth: 1)
         )
-        .accessibilityLabel(isPlaying ? "Now playing" : "Paused")
+        .accessibilityLabel(isPlaying ? String(localized: "Now playing") : String(localized: "Paused"))
     }
 }
 
@@ -723,11 +723,12 @@ struct MediaItemRow: View {
 }
 
 struct FavoriteFolderArtworkView: View {
+    var size: CGFloat = 44
     var body: some View {
         Image(systemName: "star.fill")
-            .font(.system(size: 22, weight: .bold))
+            .font(.system(size: size * 0.5, weight: .bold))
             .foregroundStyle(.yellow)
-        .frame(width: 44, height: 44)
+        .frame(width: size, height: size)
         .background(RoundedRectangle(cornerRadius: 6).fill(Color(.systemGray5)))
     }
 }

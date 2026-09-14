@@ -1,62 +1,78 @@
 {
-  "sourceLanguage" : "en",
-  "strings" : {
-    "CFBundleDisplayName" : {
-      "comment" : "Bundle display name",
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Medio"
+  "sourceLanguage": "en",
+  "strings": {
+    "CFBundleDisplayName": {
+      "comment": "Bundle display name",
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Medio"
           }
         }
       }
     },
-    "CFBundleName" : {
-      "comment" : "Bundle name",
-      "extractionState" : "extracted_with_value",
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "new",
-            "value" : "Medio"
+    "CFBundleName": {
+      "comment": "Bundle name",
+      "extractionState": "extracted_with_value",
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "new",
+            "value": "Medio"
           }
         }
       }
     },
-    "Medio Internal Drag Items" : {
-
-    },
-    "NSLocalNetworkUsageDescription" : {
-      "extractionState" : "manual",
-      "localizations" : {
-        "cs" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Medio sdílí aktuální zvuk s prohlížeči ve vaší Wi-Fi pouze po spuštění sdílení."
+    "Medio Internal Drag Items": {},
+    "NSLocalNetworkUsageDescription": {
+      "extractionState": "manual",
+      "localizations": {
+        "cs": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Medio sdílí aktuální zvuk s prohlížeči ve vaší Wi-Fi pouze po spuštění sdílení."
           }
         },
-        "de" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Medio teilt das aktuelle Audio nur dann mit Browsern in deinem WLAN, wenn du eine Freigabesitzung startest."
+        "de": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Medio teilt das aktuelle Audio nur dann mit Browsern in deinem WLAN, wenn du eine Freigabesitzung startest."
           }
         },
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Medio shares the current audio with browsers on your Wi-Fi only when you start a sharing session."
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Medio shares the current audio with browsers on your Wi-Fi only when you start a sharing session."
           }
         },
-        "fr" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Medio partage l’audio actuel avec les navigateurs sur votre Wi-Fi uniquement lorsque vous démarrez une session de partage."
+        "fr": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Medio partage l’audio actuel avec les navigateurs sur votre Wi-Fi uniquement lorsque vous démarrez une session de partage."
+          }
+        },
+        "fr-CA": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Medio partage l’audio actuel avec les navigateurs sur votre Wi-Fi uniquement lorsque vous démarrez une session de partage."
+          }
+        },
+        "bg": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Medio споделя текущото аудио с браузъри във вашата Wi-Fi мрежа само когато стартирате сесия за споделяне."
+          }
+        },
+        "sk": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Medio zdieľa aktuálny zvuk s prehliadačmi vo vašej Wi-Fi iba vtedy, keď spustíte reláciu zdieľania."
           }
         }
       }
     }
   },
-  "version" : "1.0"
+  "version": "1.0"
 }

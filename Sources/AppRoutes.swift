@@ -11,6 +11,7 @@ enum SheetRoute: Hashable, Identifiable {
     case nowPlaying
     case queue
     case settings
+    case sharingEncryptionSetup
     case lyricsSettings
     case crashReportManager
     case favorites
@@ -31,11 +32,19 @@ enum SheetRoute: Hashable, Identifiable {
     case artist(name: String)
     case artistAbout(name: String)
 
+    var isBrowsingPage: Bool {
+        switch self {
+        case .folder, .folderBrowser, .favorites, .album, .artistAlbum, .artist: return true
+        default: return false
+        }
+    }
+
     var id: String {
         switch self {
         case .nowPlaying: return "nowPlaying"
         case .queue: return "queue"
         case .settings: return "settings"
+        case .sharingEncryptionSetup: return "sharingEncryptionSetup"
         case .lyricsSettings: return "lyricsSettings"
         case .crashReportManager: return "crashReportManager"
         case .favorites: return "favorites"

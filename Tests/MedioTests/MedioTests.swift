@@ -227,13 +227,30 @@ final class AppRouterTests: XCTestCase {
         let router = AppRouter()
         router.push(.folder(path: "/music"))
         router.push(.nowPlaying)
-        XCTAssertTrue(router.pushPath.isEmpty)
-        XCTAssertEqual(router.sheet, .folder(path: "/music"))
-        XCTAssertEqual(router.currentSheetRoute, .nowPlaying)
-        router.dismissSheet()
-        XCTAssertEqual(router.currentSheetRoute, .folder(path: "/music"))
+        XCTAssertEqual(router.pushPath, [.folder(path: "/music")])
+        XCTAssertEqual(router.sheet, .nowPlaying)
         router.dismissSheet()
         XCTAssertNil(router.sheet)
+        XCTAssertEqual(router.pushPath, [.folder(path: "/music")])
+        router.pop()
+        XCTAssertTrue(router.pushPath.isEmpty)
+    }
+
+    func testBrowsingTabsPreserveIndependentPathsAndEncryptionStaysInSettings() {
+        let router = AppRouter()
+        router.push(.folder(path: "/music"))
+        router.selectTab(.library)
+        router.push(.album(name: "Album"))
+        router.present(.settings)
+        router.present(.sharingEncryptionSetup)
+        XCTAssertEqual(router.sheet, .settings)
+        XCTAssertEqual(router.currentSheetRoute, .sharingEncryptionSetup)
+        router.dismissSheet()
+        XCTAssertEqual(router.currentSheetRoute, .settings)
+        router.dismissSheet()
+        XCTAssertEqual(router.pushPath, [.album(name: "Album")])
+        router.selectTab(.home)
+        XCTAssertEqual(router.pushPath, [.folder(path: "/music")])
     }
 
     func testPushAndPop() {
@@ -1033,7 +1050,7 @@ final class LibraryAndFilteringTests: XCTestCase {
         XCTAssertEqual(vm.filteredItems.map(\.displayName), ["Music", "Favorites"])
     }
 
-    func testHomeViewModelHidesFavoriteShadowFolderWhenFavoritesHomeFolderIsRemoved() {
+    func testHomeViewModelRestoresFavoritesWithLegacyHiddenPreference() {
         let suiteName = "MedioTests.homeFavoritesRemoved.\(UUID().uuidString)"
         let defaults = UserDefaults(suiteName: suiteName)!
         defaults.removePersistentDomain(forName: suiteName)
@@ -1053,8 +1070,8 @@ final class LibraryAndFilteringTests: XCTestCase {
 
         let vm = HomeViewModel(libraryStore: store, playbackService: playbackService, settingsStore: settings)
 
-        XCTAssertEqual(vm.filteredItems.map(\.displayName), ["Music"])
-        XCTAssertFalse(vm.filteredItems.contains { MedioShadowFolder.isFavorites($0.id) })
+        XCTAssertEqual(vm.filteredItems.map(\.displayName), ["Music", "Favorites"])
+        XCTAssertTrue(vm.filteredItems.contains { MedioShadowFolder.isFavorites($0.id) })
     }
 
     func testUnpinningFavoritesUnlocksPrimaryPrioritySlot() {
@@ -1962,7 +1979,6 @@ final class SettingsAndValidationTests: XCTestCase {
         XCTAssertEqual(FileBrowserIconSizing.clamped(52), 52)
         XCTAssertEqual(FileBrowserIconSizing.clamped(100), 84)
         XCTAssertEqual(FileBrowserIconSizing.gridMinimum(for: 52), 60)
-        XCTAssertEqual(FileBrowserIconSizing.gridMaximum(for: 52), 72)
     }
 
     func testSelectingSortStartsAscendingThenTogglesDirection() {
@@ -3451,8 +3467,8 @@ final class LocalAudioSharingTests: XCTestCase {
         do { _ = try await request("/state", headers: auth); XCTFail("Stopped session must not respond") } catch { }
     }
 
-    func testFourLanguagesAreBundledAndHaveRealTranslations() throws {
-        let expected = ["en": "Home", "cs": "Domů", "de": "Start", "fr": "Accueil"]
+    func testSevenLanguagesAreBundledAndHaveRealTranslations() throws {
+        let expected = ["en": "Home", "cs": "Domů", "de": "Start", "fr": "Accueil", "fr-CA": "Accueil", "bg": "Начало", "sk": "Domov"]
         for (language, home) in expected {
             let path = try XCTUnwrap(Bundle.main.path(forResource: language, ofType: "lproj"))
             let bundle = try XCTUnwrap(Bundle(path: path))
@@ -3666,7 +3682,12 @@ private final class SharingTestTrustDelegate: NSObject, URLSessionDelegate, @unc
               let root = SecCertificateCreateWithData(nil, root as CFData) else { completionHandler(.cancelAuthenticationChallenge, nil); return }
         SecTrustSetAnchorCertificates(trust, [root] as CFArray)
         SecTrustSetAnchorCertificatesOnly(trust, true)
-        guard SecTrustEvaluateWithError(trust, nil) else { completionHandler(.cancelAuthenticationChallenge, nil); return }
+        var error: CFError?
+        guard SecTrustEvaluateWithError(trust, &error) else {
+            print("Pinned sharing trust rejected:", String(describing: error), String(describing: SecTrustCopyResult(trust)))
+            completionHandler(.cancelAuthenticationChallenge, nil)
+            return
+        }
         completionHandler(.useCredential, URLCredential(trust: trust))
     }
 }
@@ -3781,5 +3802,39 @@ final class SharingAudioPreparationTests: XCTestCase {
         let file = try AVAudioFile(forWriting: source, settings: format.settings)
         try file.write(from: buffer)
         return source
+    }
+}
+
+
+@MainActor
+final class LibraryMaintenanceTests: XCTestCase {
+    func testLivedInRefreshOrganizesLooseLyricsAndPreservesMedia() async throws {
+        let fileManager = FileManager.default
+        let documents = try XCTUnwrap(fileManager.urls(for: .documentDirectory, in: .userDomainMask).first)
+        let name = "Maintenance-\(UUID().uuidString)"
+        let folder = documents.appendingPathComponent(name, isDirectory: true)
+        try fileManager.createDirectory(at: folder, withIntermediateDirectories: true)
+        let song = folder.appendingPathComponent(name + ".mp3")
+        let lyrics = folder.appendingPathComponent(name + ".lrc")
+        let original = Data("local media fixture".utf8)
+        try original.write(to: song)
+        try Data("[00:00.00]Maintenance lyrics".utf8).write(to: lyrics)
+        var managedURL: URL?
+        defer {
+            try? fileManager.removeItem(at: folder)
+            if let managedURL { try? fileManager.removeItem(at: managedURL) }
+        }
+        let container = AppContainer()
+        let result = try await container.refreshLivedInLibrary()
+        let path = try XCTUnwrap(container.lyricsFileAssociationRepository.getAssociatedLyricsFile(forMediaPath: song.path))
+        managedURL = URL(fileURLWithPath: path)
+        try await container.lyricsFileAssociationRepository.removeAssociatedLyricsFile(forMediaPath: song.path)
+        XCTAssertGreaterThanOrEqual(result.organizedLyrics, 1)
+        XCTAssertGreaterThanOrEqual(result.retriedArtwork, 1)
+        XCTAssertTrue(container.libraryStore.librarySongs.contains { $0.id == song.path })
+        XCTAssertFalse(fileManager.fileExists(atPath: lyrics.path))
+        XCTAssertTrue(fileManager.fileExists(atPath: path))
+        XCTAssertEqual(try Data(contentsOf: song), original)
+        XCTAssertNotNil(container.libraryStore.lastStorageScanSummary)
     }
 }

@@ -533,6 +533,8 @@ struct RootView: View {
                     container: container
                 )
             }
+        case .sharingEncryptionSetup:
+            SharingEncryptionSetup(sharing: container.audioSharing)
         case .lyricsSettings:
             panelWithMiniPlayer {
                 LyricsSettingsPanel(container: container)

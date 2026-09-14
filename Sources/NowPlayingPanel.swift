@@ -379,7 +379,7 @@ struct NowPlayingPanel: View {
                             .contentShape(Circle())
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel(isCurrentFavorite ? "Remove Favorite" : "Add Favorite")
+                    .accessibilityLabel(isCurrentFavorite ? String(localized: "Remove Favorite") : String(localized: "Add Favorite"))
                 }
             }
 
@@ -406,7 +406,7 @@ struct NowPlayingPanel: View {
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .accessibilityLabel(settingsStore.nowPlayingShowsTotalDuration ? "Show remaining time" : "Show total duration")
+                    .accessibilityLabel(settingsStore.nowPlayingShowsTotalDuration ? String(localized: "Show remaining time") : String(localized: "Show total duration"))
                 }
                 .font(.caption.weight(.medium))
                 .foregroundStyle(.white.opacity(0.75))

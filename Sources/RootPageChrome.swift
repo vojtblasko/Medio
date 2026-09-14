@@ -2,7 +2,7 @@ import SwiftUI
 
 struct RootPageTitle: View {
     @Environment(\.medioUsesCompactRootChrome) private var usesCompactChrome
-    let title: String
+    let title: LocalizedStringKey
     var isCollapsed = false
 
     var body: some View {
@@ -21,7 +21,7 @@ struct RootPageTitle: View {
 }
 
 struct RootPageTitleToolbar: ToolbarContent {
-    let title: String
+    let title: LocalizedStringKey
     var isCollapsed = false
 
     @ToolbarContentBuilder
@@ -34,7 +34,7 @@ struct RootPageTitleToolbar: ToolbarContent {
 
 private struct CompatibleRootPageTitleModifier: ViewModifier {
     @Environment(\.medioUsesCompactRootChrome) private var usesCompactChrome
-    let title: String
+    let title: LocalizedStringKey
     var isCollapsed: Bool
 
     func body(content: Content) -> some View {
@@ -59,7 +59,7 @@ private struct CompatibleRootPageTitleModifier: ViewModifier {
 
 extension View {
     @ViewBuilder
-    func compatibleRootPageTitle(_ title: String, isCollapsed: Bool = false) -> some View {
+    func compatibleRootPageTitle(_ title: LocalizedStringKey, isCollapsed: Bool = false) -> some View {
         modifier(CompatibleRootPageTitleModifier(title: title, isCollapsed: isCollapsed))
     }
 

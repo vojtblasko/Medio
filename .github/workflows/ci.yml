@@ -10,6 +10,8 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
+      - name: Validate translations
+        run: python3 Scripts/validate_localizations.py
       - name: Select Xcode
         uses: maxim-lobanov/setup-xcode@v1
         with:

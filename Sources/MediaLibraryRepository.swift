@@ -428,7 +428,7 @@ private extension DefaultMediaLibraryRepository {
     func documentsURL() throws -> URL {
         if let documentsRootURL { return documentsRootURL }
         guard let url = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else {
-            throw NSError(domain: "MediaLibraryRepository", code: 1, userInfo: [NSLocalizedDescriptionKey: "Documents directory not found."])
+            throw NSError(domain: "MediaLibraryRepository", code: 1, userInfo: [NSLocalizedDescriptionKey: String(localized: "Documents directory not found.")])
         }
         return url
     }

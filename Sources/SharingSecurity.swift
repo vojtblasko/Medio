@@ -68,7 +68,10 @@ final class SharingTLSIdentity: @unchecked Sendable {
     }
 
     func options() throws -> NWProtocolTLS.Options {
-        guard let identity = sec_identity_create(identity) else { throw Failure.missingIdentity }
+        guard let root = SecCertificateCreateWithData(nil, rootCertificate as CFData),
+              let identity = sec_identity_create_with_certificates(identity, [certificate, root] as CFArray) else {
+            throw Failure.missingIdentity
+        }
         let options = NWProtocolTLS.Options()
         sec_protocol_options_set_local_identity(options.securityProtocolOptions, identity)
         sec_protocol_options_set_min_tls_protocol_version(options.securityProtocolOptions, .TLSv12)

@@ -109,11 +109,11 @@ final class UserDefaultsVisualMetadataOverridesRepository: VisualMetadataOverrid
 enum VisualArtworkOverrideStore {
     static func saveArtwork(_ data: Data) throws -> String {
         guard let image = UIImage(data: data) else {
-            throw NSError(domain: "VisualArtworkOverrideStore", code: 1, userInfo: [NSLocalizedDescriptionKey: "Choose a valid image."])
+            throw NSError(domain: "VisualArtworkOverrideStore", code: 1, userInfo: [NSLocalizedDescriptionKey: String(localized: "Choose a valid image.")])
         }
         let prepared = prepare(image)
         guard let output = prepared.jpegData(compressionQuality: 0.88) else {
-            throw NSError(domain: "VisualArtworkOverrideStore", code: 2, userInfo: [NSLocalizedDescriptionKey: "Could not save image."])
+            throw NSError(domain: "VisualArtworkOverrideStore", code: 2, userInfo: [NSLocalizedDescriptionKey: String(localized: "Could not save image.")])
         }
         let folder = try artworkFolder()
         let url = folder.appendingPathComponent(UUID().uuidString).appendingPathExtension("jpg")
@@ -632,8 +632,7 @@ final class HomeViewModel: ScreenViewModel {
 
     private func homeItemsIncludingFavoritesShadow() -> [FileInfo] {
         var items = libraryStore.homeItems
-        if settingsStore.favoritesHomeFolderEnabled,
-           !(settingsStore.priorityFoldersCount > 0 && settingsStore.favoritesPriorityFolderEnabled),
+        if !(settingsStore.priorityFoldersCount > 0 && settingsStore.favoritesPriorityFolderEnabled),
            !libraryStore.favorites.isEmpty {
             items.append(MedioShadowFolder.favorites)
         }
@@ -1637,7 +1636,7 @@ struct AlbumMetadataSummary: Equatable {
         genre: "NA",
         discNumbers: "NA",
         lyricsIncluded: "N",
-        credits: "Album artist: NA • Author: NA • Writer: NA",
+        credits: String(localized: "Album artist: NA • Author: NA • Writer: NA"),
         subtitleArtist: "Unknown Artist",
         subtitleYear: "NA"
     )
@@ -1649,7 +1648,7 @@ struct AlbumMetadataSummary: Equatable {
             genre: "NA",
             discNumbers: "NA",
             lyricsIncluded: "N",
-            credits: "Album artist: NA • Author: NA • Writer: NA",
+            credits: String(localized: "Album artist: NA • Author: NA • Writer: NA"),
             subtitleArtist: "Unknown Artist",
             subtitleYear: "NA"
         )
@@ -1673,7 +1672,7 @@ struct AlbumMetadataSummary: Equatable {
             genre: uniqueOrNA(genres),
             discNumbers: uniqueOrNA(tags.map { $0.value.discNumber }),
             lyricsIncluded: hasLyrics ? "Y" : "N",
-            credits: "Album artist: \(uniqueOrNA(albumArtists)) • Author: \(uniqueOrNA(authors)) • Writer: \(uniqueOrNA(writers))",
+            credits: String(localized: "Album artist: \(uniqueOrNA(albumArtists)) • Author: \(uniqueOrNA(authors)) • Writer: \(uniqueOrNA(writers))"),
             subtitleArtist: subtitleArtist,
             subtitleYear: subtitleYear
         )

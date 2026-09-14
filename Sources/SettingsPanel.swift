@@ -157,7 +157,7 @@ struct SettingsPanel: View {
                     Button("App Language") {
                         if let url = URL(string: UIApplication.openSettingsURLString) { UIApplication.shared.open(url) }
                     }
-                    Text("Uses your device language by default. English, Czech, German, and French are available in iOS app settings.")
+                    Text("Uses your device language by default. English, Czech, German, French, French (Canada), Bulgarian, and Slovak are available in iOS app settings.")
                         .font(.caption).foregroundStyle(.secondary)
                 }
 
@@ -214,16 +214,12 @@ struct SettingsPanel: View {
                         }
                     }
 
-                    Toggle("Show Favorites in Home", isOn: $settingsStore.favoritesHomeFolderEnabled)
-                        .accessibilityIdentifier("settings_home_favorites")
                     Toggle("Use Favorites as Priority 1", isOn: $settingsStore.favoritesPriorityFolderEnabled)
                         .accessibilityIdentifier("settings_priority_favorites")
-                    Text("When pinned as Priority 1, Favorites appears there instead of in the folder list. Your favorite songs are kept when either switch is off.")
+                    Text("When pinned as Priority 1, Favorites appears there instead of in the folder list. Unpinning it returns Favorites to the folder list.")
                         .font(.caption).foregroundStyle(.secondary)
                     if vm.priorityFoldersCount == 0 {
-                        Text(container.settingsStore.favoritesHomeFolderEnabled
-                            ? "Favorites appears with normal folders after you favorite a song."
-                            : "Favorites is hidden from Home. Increase Priority Folders to configure Priority 1 as a normal folder or image.")
+                        Text("Favorites appears with normal folders after you favorite a song.")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                     } else {
@@ -283,7 +279,7 @@ struct SettingsPanel: View {
 
                     Button(action: makeMeLiviedIt) {
                         HStack {
-                            Label("Make Me Livied It", systemImage: "wand.and.stars")
+                            Label("Make It Lived In", systemImage: "wand.and.stars")
                             Spacer()
                             if isMakingLivied {
                                 ProgressView()
@@ -372,7 +368,7 @@ struct SettingsPanel: View {
             } message: {
                 Text("Turning this off stops new listening history from being recorded. If you delete the collected data, the saved listening history and generated ReCapped files will be removed from this device.")
             }
-            .alert("Make Me Livied It", isPresented: $showLiviedAlert) {
+            .alert("Make It Lived In", isPresented: $showLiviedAlert) {
                 Button("OK") { }
             } message: {
                 Text(liviedStatus)
@@ -558,37 +554,16 @@ struct SettingsPanel: View {
         liviedStatus = String(localized: "Refreshing library snapshot...")
 
         Task {
-            let scanUseCase = ScanLibraryUseCase(dataSource: container.mediaLibraryRepository)
             do {
-                ArtworkCache.shared.clear()
-                await container.libraryStore.refresh(scanUseCase: scanUseCase)
-
-                liviedStatus = String(localized: "Organizing loose lyrics files...")
-                let organizedCount = try await organizeLyricsFiles { processed, total in
-                    if total == 0 {
-                        liviedStatus = String(localized: "No loose lyrics files found.")
-                    } else {
-                        liviedStatus = String(localized: "Organizing loose lyrics files \(processed)/\(total)...")
-                    }
-                }
-
-                if organizedCount > 0 {
-                    liviedStatus = String(localized: "Refreshing snapshot after lyrics organization...")
-                    await container.libraryStore.refresh(scanUseCase: scanUseCase)
-                }
-
-                ArtworkCache.shared.clear()
-                let songs = container.libraryStore.librarySongs
-                let songIDs = songs.map(\.id)
-                ArtworkCache.shared.retry(songIDs)
+                let result = try await container.refreshLivedInLibrary { liviedStatus = $0 }
                 await refreshCacheUsage()
 
                 isMakingLivied = false
-                liviedStatus = String(localized: "Snapshot refreshed: \(lastSnapshotText). Lyrics files organized: \(organizedCount). Songs queued for cover art retry: \(songIDs.count).")
+                liviedStatus = String(localized: "Snapshot refreshed: \(lastSnapshotText). Lyrics files organized: \(result.organizedLyrics). Songs queued for cover art retry: \(result.retriedArtwork).")
                 showLiviedAlert = true
             } catch {
                 isMakingLivied = false
-                liviedStatus = String(localized: "Make Me Livied It failed: \(error.localizedDescription)")
+                liviedStatus = String(localized: "Make It Lived In failed: \(error.localizedDescription)")
                 showLiviedAlert = true
             }
         }
@@ -639,15 +614,6 @@ struct SettingsPanel: View {
                 }
             }
         }
-    }
-
-    private func organizeLyricsFiles(
-        progress: @escaping LyricsOrganizationService.ProgressHandler = { _, _ in }
-    ) async throws -> Int {
-        let service = LyricsOrganizationService(
-            associationRepository: container.lyricsFileAssociationRepository
-        )
-        return try await service.organize(progress: progress)
     }
 
     private var lastSnapshotText: String {
@@ -1135,7 +1101,7 @@ struct CrashReportManagerPanel: View {
         HStack {
             Label(title, systemImage: icon)
             Spacer()
-            Text(isEnabled ? "On" : "Off")
+            Text(isEnabled ? String(localized: "On") : String(localized: "Off"))
                 .font(.caption.weight(.semibold))
                 .foregroundStyle(isEnabled ? .green : .secondary)
             Text("\(count)")

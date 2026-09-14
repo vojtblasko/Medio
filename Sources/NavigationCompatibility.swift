@@ -73,7 +73,7 @@ struct CompatibleLabeledContent: View {
     let value: String
 
     init(_ label: String, value: String) {
-        self.label = label
+        self.label = NSLocalizedString(label, comment: "Property label")
         self.value = value
     }
 

@@ -209,9 +209,6 @@ enum FileBrowserIconSizing {
         clamped(size) + 8
     }
 
-    static func gridMaximum(for size: Double) -> CGFloat {
-        gridMinimum(for: size) + 12
-    }
 }
 
 struct FileBrowserViewOptionsPanel: View {
@@ -237,7 +234,6 @@ struct FileBrowserViewOptionsPanel: View {
                     }
                     .accessibilityIdentifier("browser_icon_size")
 
-                    CompatibleLabeledContent("Icon Size", value: "\(Int(iconSize.rounded())) pt")
                 }
             }
             .navigationTitle("View Options")
@@ -351,6 +347,7 @@ struct HomeScreen: View {
     @State private var folderDropFrames: [String: CGRect] = [:]
     @State private var activeFolderDropPath: String?
     @State private var showViewOptions = false
+    @State private var refreshError: String?
     @State private var isRootTitleCollapsed = false
     @AppStorage("medio.home.viewStyle") private var browserViewStyle: FileBrowserViewStyle = .list
     @AppStorage(FileBrowserIconSizing.storageKey) private var browserIconSize = FileBrowserIconSizing.defaultSize
@@ -374,8 +371,7 @@ struct HomeScreen: View {
     private var fileGridColumns: [GridItem] {
         [GridItem(
             .adaptive(
-                minimum: FileBrowserIconSizing.gridMinimum(for: browserIconSize),
-                maximum: FileBrowserIconSizing.gridMaximum(for: browserIconSize)
+                minimum: FileBrowserIconSizing.gridMinimum(for: browserIconSize)
             ),
             spacing: 12,
             alignment: .top
@@ -452,8 +448,14 @@ struct HomeScreen: View {
             FileBrowserViewOptionsPanel(iconSize: $browserIconSize)
         }
         .refreshable {
-            await container.libraryStore.refresh(scanUseCase: ScanLibraryUseCase(dataSource: container.mediaLibraryRepository))
+            do { _ = try await container.refreshLivedInLibrary() }
+            catch { refreshError = String(localized: "Make It Lived In failed: \(error.localizedDescription)") }
         }
+        .alert("Operation Failed", isPresented: Binding(
+            get: { refreshError != nil }, set: { if !$0 { refreshError = nil } }
+        )) {
+            Button("OK", role: .cancel) { refreshError = nil }
+        } message: { Text(refreshError ?? "") }
     }
 
     private var homeScrollTopAnchor: some View {
@@ -1123,9 +1125,7 @@ struct FileBrowserIconTile: View {
     var body: some View {
         ZStack(alignment: .topTrailing) {
             VStack(alignment: usesCardBackground ? .center : .leading, spacing: usesCardBackground ? 8 : 7) {
-                artwork
-                    .frame(width: iconSize, height: iconSize)
-                    .frame(maxWidth: .infinity, alignment: .center)
+                tileArtwork
 
                 Text(item.displayName)
                     .font(usesCardBackground ? .subheadline : .system(size: 15, weight: .regular))
@@ -1175,39 +1175,54 @@ struct FileBrowserIconTile: View {
     }
 
     @ViewBuilder
-    private var artwork: some View {
+    private var tileArtwork: some View {
+        if usesCardBackground {
+            artwork(size: iconSize)
+                .frame(width: iconSize, height: iconSize)
+                .frame(maxWidth: .infinity)
+        } else {
+            GeometryReader { proxy in
+                artwork(size: proxy.size.width)
+                    .frame(width: proxy.size.width, height: proxy.size.width)
+            }
+            .aspectRatio(1, contentMode: .fit)
+        }
+    }
+
+    @ViewBuilder
+    private func artwork(size: CGFloat) -> some View {
         if MedioShadowFolder.isFavorites(item.id) {
-            FavoriteFolderArtworkView()
+            FavoriteFolderArtworkView(size: size)
         } else {
             switch item.fileType {
             case .folder:
-                FolderArtworkView(path: item.id, librarySongs: librarySongs)
+                FolderArtworkView(path: item.id, librarySongs: librarySongs, size: size, cornerRadius: 8)
             case .music:
                 if showsNowPlayingVisualizer {
                     NowPlayingAudioVisualizerArtwork(
                         isPlaying: playbackStore.isPlaying,
                         levels: playbackStore.audioLevels,
-                        size: iconSize,
+                        size: size,
                         cornerRadius: 8
                     )
                 } else {
-                    SongArtworkView(path: item.id, size: iconSize, cornerRadius: 8)
+                    SongArtworkView(path: item.id, size: size, cornerRadius: 8)
                 }
             case .video:
-                SongArtworkView(path: item.id, size: iconSize, cornerRadius: 8, fallbackSystemImage: "film.fill")
+                SongArtworkView(path: item.id, size: size, cornerRadius: 8, fallbackSystemImage: "film.fill")
             case .lyrics:
-                fileSymbol("doc.text.fill", color: .orange)
+                fileSymbol("doc.text.fill", color: .orange, size: size)
             case .unrecognized:
-                fileSymbol("doc.fill", color: .secondary)
+                fileSymbol("doc.fill", color: .secondary, size: size)
             }
         }
     }
 
-    private func fileSymbol(_ name: String, color: Color) -> some View {
+    private func fileSymbol(_ name: String, color: Color, size: CGFloat) -> some View {
         Image(systemName: name)
-            .font(.system(size: 28, weight: .medium))
+            .font(.system(size: size * 0.48, weight: .medium))
             .foregroundStyle(color)
-            .frame(width: 52, height: 52)
+            .frame(width: size, height: size)
             .background(Color(.systemGray5), in: RoundedRectangle(cornerRadius: 8))
     }
 }
@@ -1873,7 +1888,7 @@ struct MultiItemDragPreview: View {
                 HStack(spacing: 8) {
                     Image(systemName: iconName)
                         .foregroundStyle(Color.accentColor)
-                    Text(count > 1 ? "\(count) items" : title)
+                    Text(count > 1 ? String(localized: "\(count) items") : title)
                         .font(.caption.weight(.semibold))
                         .lineLimit(1)
                         .foregroundStyle(.primary)
@@ -3415,7 +3430,7 @@ struct PlaygroundScreen: View {
         }
     }
 
-    private func metricRow(_ title: String, value: Int) -> some View {
+    private func metricRow(_ title: LocalizedStringKey, value: Int) -> some View {
         HStack {
             Text(title)
             Spacer()
@@ -3483,7 +3498,7 @@ struct MiniPlayerBar: View {
                     }
                     .buttonStyle(.plain)
                     .disabled(playbackStore.nowPlaying == nil)
-                    .accessibilityLabel(playbackStore.playback.isPlaying ? "Pause" : "Play")
+                    .accessibilityLabel(playbackStore.playback.isPlaying ? String(localized: "Pause") : String(localized: "Play"))
 
                     Button {
                         skipNextFromButton()
@@ -3624,8 +3639,8 @@ struct MiniPlayerBar: View {
             .allowsHitTesting(false)
         }
         .frame(height: 54)
+        .background { shape.fill(.clear).liquidGlassCard(cornerRadius: 18) }
         .clipShape(shape)
-        .liquidGlassCard(cornerRadius: 18)
         .contentShape(shape)
     }
 

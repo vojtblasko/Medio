@@ -16,7 +16,7 @@ struct LyricsOrganizationService: @unchecked Sendable {
 
     func organize(progress: @escaping ProgressHandler = { _, _ in }) async throws -> Int {
         guard let docsDir = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else {
-            throw NSError(domain: "LyricsOrganizationService", code: 1, userInfo: [NSLocalizedDescriptionKey: "Documents directory not found."])
+            throw NSError(domain: "LyricsOrganizationService", code: 1, userInfo: [NSLocalizedDescriptionKey: String(localized: "Documents directory not found.")])
         }
 
         let musicExts = ["mp3", "m4a", "aac", "wav", "flac", "ogg", "opus", "alac"]

@@ -354,6 +354,9 @@
 				cs,
 				de,
 				fr,
+				"fr-CA",
+				bg,
+				sk,
 				Base,
 			);
 			mainGroup = 100000000000000000000020;

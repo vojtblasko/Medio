@@ -141,7 +141,7 @@ private extension FileLyricsRepository {
         throw NSError(
             domain: "FileLyricsRepository",
             code: 2,
-            userInfo: [NSLocalizedDescriptionKey: "Unsupported text encoding for lyrics file at \(url.lastPathComponent)."]
+            userInfo: [NSLocalizedDescriptionKey: String(localized: "Unsupported text encoding for lyrics file at \(url.lastPathComponent).")]
         )
     }
 
@@ -317,7 +317,7 @@ enum LyricsManagedStorage {
     static func lyricsDirectoryURL(fileManager: FileManager = .default) throws -> URL {
         guard let documents = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first else {
             throw NSError(domain: "LyricsManagedStorage", code: 1,
-                          userInfo: [NSLocalizedDescriptionKey: "Documents directory not found."])
+                          userInfo: [NSLocalizedDescriptionKey: String(localized: "Documents directory not found.")])
         }
         return documents.appendingPathComponent(lyricsFolderName, isDirectory: true)
     }

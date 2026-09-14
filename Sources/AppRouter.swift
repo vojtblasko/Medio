@@ -89,8 +89,16 @@ final class AppRouter: ObservableObject {
     }
 
     func push(_ route: SheetRoute) {
-        // Detail pages live above the root tabs, with their own full-screen stack.
-        present(route)
+        // Browsing stays in the selected tab; tools and playback open full screen.
+        if sheet != nil {
+            present(route)
+        } else if route.isBrowsingPage {
+            var path = pushPath
+            path.append(route)
+            pushPath = path
+        } else {
+            present(route)
+        }
     }
 
     func pop() {

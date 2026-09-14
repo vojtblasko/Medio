@@ -26,7 +26,10 @@ enum SharingReceiverPage {
           de:{intro:'Gemeinsam über WLAN hören.',code:'Zugangscode',connect:'Verbinden',listen:'Anhören',disconnect:'Trennen',wrong:'Falscher Code. Bitte erneut versuchen.',busy:'Zu viele Versuche. Bitte eine Minute warten.',ended:'Die Freigabe wurde beendet oder das Gerät ist nicht erreichbar.',ready:'Zum Starten auf Anhören tippen.',wait:'Warten auf einen Titel…',blocked:'Zum Fortsetzen auf Anhören tippen.',unsupported:'Dieses Audioformat kann in diesem Browser nicht abgespielt werden.',note:'Kopfhörer oder Lautsprecher mit diesem Gerät verbinden. Diese Seite geöffnet lassen. Die Wiedergabe folgt Medio mit etwas Verzögerung. Nur Audio teilen, für das du die nötigen Rechte hast.'},
           fr:{intro:'Écoutez ensemble sur votre Wi-Fi.',code:'Code d’accès',connect:'Se connecter',listen:'Écouter',disconnect:'Se déconnecter',wrong:'Code incorrect. Réessayez.',busy:'Trop de tentatives. Patientez une minute.',ended:'Le partage est arrêté ou l’appareil hôte est indisponible.',ready:'Touchez Écouter pour commencer.',wait:'En attente d’un morceau…',blocked:'Touchez Écouter pour reprendre.',unsupported:'Ce format audio ne peut pas être lu dans ce navigateur.',note:'Connectez votre casque ou enceinte à cet appareil. Gardez cette page ouverte. La lecture suit Medio avec un léger décalage. Partagez uniquement les fichiers audio que vous êtes autorisé à partager.'}
         };
-        const lang=(navigator.languages||[navigator.language]).map(x=>x.split('-')[0]).find(x=>translations[x])||'en', t=translations[lang];
+        translations['fr-ca']={...translations.fr,intro:'Écoutez ensemble sur votre Wi-Fi.',wait:'En attente d’une chanson…',note:'Connectez vos écouteurs ou votre haut-parleur à cet appareil. Gardez cette page ouverte. La lecture suit Medio avec un léger décalage. Partagez uniquement les fichiers audio que vous êtes autorisé à partager.'};
+        translations.bg={intro:'Слушайте заедно през Wi-Fi.',code:'Код за достъп',connect:'Свързване',listen:'Слушане',disconnect:'Прекъсване',wrong:'Неправилен код. Опитайте отново.',busy:'Твърде много опити. Изчакайте минута.',ended:'Споделянето е спряно или хостът е недостъпен.',ready:'Натиснете Слушане, за да започнете.',wait:'Изчакване на песен…',blocked:'Натиснете Слушане, за да продължите.',unsupported:'Този аудио формат не се поддържа от браузъра.',note:'Свържете слушалките или тонколоната си с това устройство. Оставете страницата отворена. Възпроизвеждането следва Medio с известно закъснение. Споделяйте само аудио, за което имате разрешение.'};
+        translations.sk={intro:'Počúvajte spolu cez Wi-Fi.',code:'Prístupový kód',connect:'Pripojiť',listen:'Počúvať',disconnect:'Odpojiť',wrong:'Nesprávny kód. Skúste to znova.',busy:'Príliš veľa pokusov. Počkajte minútu.',ended:'Zdieľanie sa skončilo alebo hostiteľ nie je dostupný.',ready:'Začnite klepnutím na Počúvať.',wait:'Čaká sa na skladbu…',blocked:'Pokračujte klepnutím na Počúvať.',unsupported:'Tento formát zvuku sa v prehliadači nedá prehrať.',note:'Pripojte slúchadlá alebo reproduktor k tomuto zariadeniu. Nechajte stránku otvorenú. Prehrávanie sleduje Medio s určitým oneskorením. Zdieľajte iba zvuk, na ktorý máte oprávnenie.'};
+        const lang=(navigator.languages||[navigator.language]).flatMap(x=>[x.toLowerCase(),x.split('-')[0].toLowerCase()]).find(x=>translations[x])||'en', t=translations[lang];
         document.documentElement.lang=lang;
         const el=id=>document.getElementById(id), audio=el('audio');
         for(const [id,key] of Object.entries({intro:'intro',codeLabel:'code',connect:'connect',listen:'listen',disconnect:'disconnect',note:'note'}))el(id).textContent=t[key];
@@ -90,7 +93,9 @@ enum SharingReceiverPage {
         }
         const scannedCode=new URLSearchParams(location.hash.slice(1)).get('code');
         if(scannedCode&&/^[0-9]{6}$/.test(scannedCode)){
-          el('code').value=scannedCode;history.replaceState(null,'',location.pathname);el('join').requestSubmit();
+          el('code').value=scannedCode;history.replaceState(null,'',location.pathname);
+          // A submit-button click also works before Safari 16's requestSubmit API.
+          el('connect').click();
         }
         </script></body></html>
         """
