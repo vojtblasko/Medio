@@ -68,8 +68,9 @@ final class SharingTLSIdentity: @unchecked Sendable {
     }
 
     func options() throws -> NWProtocolTLS.Options {
+        // The identity already supplies the leaf; this array contains only its issuers.
         guard let root = SecCertificateCreateWithData(nil, rootCertificate as CFData),
-              let identity = sec_identity_create_with_certificates(identity, [certificate, root] as CFArray) else {
+              let identity = sec_identity_create_with_certificates(identity, [root] as CFArray) else {
             throw Failure.missingIdentity
         }
         let options = NWProtocolTLS.Options()

@@ -8,6 +8,7 @@ import SQLite3
 import Security
 import CryptoKit
 import CoreImage
+import Network
 @testable import Medio
 
 private struct StubLyricsRepository: LyricsRepository {
@@ -3620,12 +3621,34 @@ final class SharingSecurityTests: XCTestCase {
         do {
             _ = try await untrusted.data(from: url)
             XCTFail("Untrusted TLS certificates must be rejected")
-        } catch { XCTAssertTrue((error as NSError).domain == NSURLErrorDomain) }
-        let trusted = URLSession(configuration: config, delegate: SharingTestTrustDelegate(root: identity.rootCertificate), delegateQueue: nil)
-        defer { trusted.invalidateAndCancel() }
-        let (data, response) = try await trusted.data(from: url)
-        XCTAssertEqual((response as? HTTPURLResponse)?.statusCode, 200)
-        XCTAssertEqual(String(data: data, encoding: .utf8), "encrypted receiver")
+        } catch {
+            let error = error as NSError
+            XCTAssertEqual(error.domain, NSURLErrorDomain)
+            XCTAssertTrue([NSURLErrorServerCertificateUntrusted, NSURLErrorSecureConnectionFailed].contains(error.code))
+        }
+        // ATS can reject a private CA before a URLSession delegate runs (notably iOS 18).
+        // Exercise the real TLS server with explicit root + hostname verification instead,
+        // without weakening the application's ATS settings or installing a system-wide CA.
+        let port = try XCTUnwrap(box.get())
+        let data = try await SharingTestTLSClient().get(port: port, root: identity.rootCertificate)
+        let response = try XCTUnwrap(String(data: data, encoding: .utf8))
+        XCTAssertTrue(response.hasPrefix("HTTP/1.1 200"))
+        XCTAssertTrue(response.hasSuffix("\r\n\r\nencrypted receiver"))
+        do {
+            _ = try await SharingTestTLSClient().get(port: port, root: identity.rootCertificate, host: "192.168.1.10")
+            XCTFail("A trusted issuer must not allow an incorrect server address")
+        } catch {
+            guard case NWError.tls = error else { return XCTFail("Expected TLS rejection, got \(error)") }
+        }
+        let otherAccount = account + ".other"
+        defer { removeRoot(otherAccount) }
+        let otherIdentity = try SharingTLSIdentity.make(host: "127.0.0.1", keychainAccount: otherAccount)
+        do {
+            _ = try await SharingTestTLSClient().get(port: port, root: otherIdentity.rootCertificate)
+            XCTFail("A matching address must not allow a different certificate authority")
+        } catch {
+            guard case NWError.tls = error else { return XCTFail("Expected TLS rejection, got \(error)") }
+        }
     }
 
     func testPublicCertificateEndpointCannotExposeAudioOrJoin() async throws {
@@ -3673,22 +3696,73 @@ final class SharingSecurityTests: XCTestCase {
     }
 }
 
-private final class SharingTestTrustDelegate: NSObject, URLSessionDelegate, @unchecked Sendable {
-    let root: Data
-    init(root: Data) { self.root = root }
-    func urlSession(_ session: URLSession, didReceive challenge: URLAuthenticationChallenge,
-                    completionHandler: @escaping (URLSession.AuthChallengeDisposition, URLCredential?) -> Void) {
-        guard let trust = challenge.protectionSpace.serverTrust,
-              let root = SecCertificateCreateWithData(nil, root as CFData) else { completionHandler(.cancelAuthenticationChallenge, nil); return }
-        SecTrustSetAnchorCertificates(trust, [root] as CFArray)
-        SecTrustSetAnchorCertificatesOnly(trust, true)
-        var error: CFError?
-        guard SecTrustEvaluateWithError(trust, &error) else {
-            print("Pinned sharing trust rejected:", String(describing: error), String(describing: SecTrustCopyResult(trust)))
-            completionHandler(.cancelAuthenticationChallenge, nil)
-            return
+/// All mutable state belongs to queue; each instance performs one bounded request.
+private final class SharingTestTLSClient: @unchecked Sendable {
+    private let queue = DispatchQueue(label: "MedioTests.pinnedTLS")
+    private var connection: NWConnection?
+    private var continuation: CheckedContinuation<Data, Error>?
+    private var response = Data()
+
+    func get(port: UInt16, root: Data, host: String = "127.0.0.1") async throws -> Data {
+        try await withCheckedThrowingContinuation { continuation in
+            queue.async {
+                self.continuation = continuation
+                let tls = NWProtocolTLS.Options()
+                sec_protocol_options_set_min_tls_protocol_version(tls.securityProtocolOptions, .TLSv12)
+                sec_protocol_options_set_verify_block(tls.securityProtocolOptions, { metadata, trust, complete in
+                    var certificates: [Data] = []
+                    XCTAssertTrue(sec_protocol_metadata_access_peer_certificate_chain(metadata) { certificate in
+                        certificates.append(SecCertificateCopyData(sec_certificate_copy_ref(certificate).takeRetainedValue()) as Data)
+                    })
+                    XCTAssertEqual(certificates.count, 2, "Send one leaf and its issuing root, without a duplicate leaf")
+                    XCTAssertEqual(Set(certificates).count, certificates.count)
+                    let trust = sec_trust_copy_ref(trust).takeRetainedValue()
+                    guard let anchor = SecCertificateCreateWithData(nil, root as CFData),
+                          SecTrustSetPolicies(trust, SecPolicyCreateSSL(true, host as CFString)) == errSecSuccess,
+                          SecTrustSetAnchorCertificates(trust, [anchor] as CFArray) == errSecSuccess,
+                          SecTrustSetAnchorCertificatesOnly(trust, true) == errSecSuccess else {
+                        complete(false)
+                        return
+                    }
+                    complete(SecTrustEvaluateWithError(trust, nil))
+                }, self.queue)
+                let connection = NWConnection(host: "127.0.0.1", port: NWEndpoint.Port(rawValue: port)!,
+                                              using: NWParameters(tls: tls, tcp: NWProtocolTCP.Options()))
+                self.connection = connection
+                connection.stateUpdateHandler = { state in
+                    switch state {
+                    case .ready:
+                        connection.send(content: Data("GET / HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n".utf8),
+                                        completion: .contentProcessed { error in
+                            if let error { self.finish(.failure(error)) }
+                            else { self.receive() }
+                        })
+                    case .failed(let error), .waiting(let error): self.finish(.failure(error))
+                    default: break
+                    }
+                }
+                connection.start(queue: self.queue)
+                self.queue.asyncAfter(deadline: .now() + 15) { self.finish(.failure(URLError(.timedOut))) }
+            }
         }
-        completionHandler(.useCredential, URLCredential(trust: trust))
+    }
+
+    private func receive() {
+        connection?.receive(minimumIncompleteLength: 1, maximumLength: 65536) { data, _, complete, error in
+            if let data { self.response.append(data) }
+            if let error { self.finish(.failure(error)) }
+            else if complete { self.finish(.success(self.response)) }
+            else { self.receive() }
+        }
+    }
+
+    private func finish(_ result: Result<Data, Error>) {
+        guard let continuation else { return }
+        self.continuation = nil
+        connection?.stateUpdateHandler = nil
+        connection?.cancel()
+        connection = nil
+        continuation.resume(with: result)
     }
 }
 
